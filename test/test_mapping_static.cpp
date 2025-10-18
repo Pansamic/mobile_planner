@@ -33,8 +33,8 @@ int main()
     YAML::Node config = YAML::LoadFile("config/config.yaml");
     
     float resolution = config["grid_map"]["resolution"].as<float>();
-    std::size_t rows = config["grid_map"]["default_length_x"].as<std::size_t>();
-    std::size_t cols = config["grid_map"]["default_length_y"].as<std::size_t>();
+    std::size_t length_x = config["grid_map"]["default_length_x"].as<std::size_t>();
+    std::size_t length_y = config["grid_map"]["default_length_y"].as<std::size_t>();
     std::size_t max_top_points_in_grid = config["grid_map"]["max_top_points_in_grid"].as<std::size_t>();
     std::string elevation_map_filter_type = config["elevation_map"]["elevation_map_filter_type"].as<std::string>();
     
@@ -56,8 +56,8 @@ int main()
     
     ElevationMap elevation_map(
         method,
-        rows,
-        cols,
+        length_x,
+        length_y,
         resolution,
         max_top_points_in_grid,
         elevation_map_filter_type,
