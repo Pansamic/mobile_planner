@@ -70,9 +70,10 @@ def create_coordinate_grids(map_data, resolution=None):
         resolution = config['grid_map']['resolution']
     
     rows, cols = map_data.shape
-    x_range = np.arange(0, cols * resolution, resolution)
-    y_range = np.arange(0, rows * resolution, resolution)
-    xq, yq = np.meshgrid(x_range[:cols], y_range[:rows])
+    # Center the grid around the origin (0, 0)
+    x_range = np.arange(-cols//2, cols//2) * resolution
+    y_range = np.arange(-rows//2, rows//2) * resolution
+    xq, yq = np.meshgrid(x_range, y_range)
     return xq, yq
 
 
@@ -108,8 +109,8 @@ def visualize_map(map_data, title, filename, xq, yq, colormap='jet'):
     ax.view_init(elev=70, azim=90)
     
     plt.tight_layout()
-    # plt.show()
     plt.savefig(filename, dpi=300)
+    plt.show()
     plt.close(fig)
     print(f"Saved {filename}")
 
