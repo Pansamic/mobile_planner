@@ -151,12 +151,12 @@ void ElevationMap::dividePointCloudToGridCells(
         if (point.x >= min_x && point.x <= max_x && point.y >= min_y && point.y <= max_y)
         {
             // Calculate grid cell indices using multiplication instead of division
-            // Fixed coordinate mapping: x-coordinate maps to column, y-coordinate maps to row
+            // Fixed coordinate mapping: x-coordinate maps to row, y-coordinate maps to column
             std::size_t col = static_cast<std::size_t>( std::floor(( half_range_y - point.y ) / resolution_ ));
             std::size_t row = static_cast<std::size_t>( std::floor(( half_range_x - point.x ) / resolution_ ));
 
             // Ensure indices are within bounds
-            if ( row >= 0 && row < rows_ && col >= 0 && col < cols_ )
+            if ( row < rows_ && col < cols_ )
             {
                 // Add point to the corresponding grid cell
                 cell_heights[row * cols_ + col].push_back( point.z );
@@ -499,10 +499,8 @@ bool ElevationMap::checkAndExtendMapIfNeeded( const pcl::PointCloud<pcl::PointXY
 
 void ElevationMap::fillNaNWithMinimumInWindow(Eigen::MatrixXf& map)
 {
-    Eigen::MatrixXf temp_map = map;
+    const Eigen::MatrixXf& temp_map = map;
     Eigen::MatrixXf filled_map = temp_map;
-    map = filled_map;
-    map = filled_map.cast<float>();
     
     // 3x3 window size
     int window_size = 3;
@@ -531,11 +529,11 @@ void ElevationMap::fillNaNWithMinimumInWindow(Eigen::MatrixXf& map)
                              nj >= 0 && nj < static_cast<int>( map.cols() ) )
                         {
                             // Check if value is not NaN
-                            if ( !std::isnan( map( ni, nj ) ) )
+                            if ( !std::isnan( temp_map( ni, nj ) ) )
                             {
-                                if ( map( ni, nj ) < min_value )
+                                if ( temp_map( ni, nj ) < min_value )
                                 {
-                                    min_value = map( ni, nj );
+                                    min_value = temp_map( ni, nj );
                                     found_valid = true;
                                 }
                             }
