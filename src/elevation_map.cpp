@@ -155,7 +155,8 @@ void ElevationMap::dividePointCloudToGridCells(
             if ( row < rows_ && col < cols_ )
             {
                 // Add point to the corresponding grid cell
-                cell_heights[row * cols_ + col].push_back( point->z );
+                // column-major order for Eigen::MatrixXf memory copy.
+                cell_heights[col * rows_ + row].push_back( point->z );
             }
         }
     }
