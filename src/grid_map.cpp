@@ -11,82 +11,82 @@
 #include <algorithm>
 #include <mobile_planner/grid_map.h>
 
-GridMap::GridMap(const std::vector<std::string>& names, std::size_t rows, std::size_t cols, float resolution)
+GridMap::GridMap(const std::vector<std::string>& names, float length_x, float length_y, float resolution)
 {
-    this->rows_ = rows;
-    this->cols_ = cols;
-    this->resolution_ = resolution;
-    this->length_ = cols * resolution;
-    this->width_ = rows * resolution;
+    // Keep rows and cols even numbers.
+    rows_ = 2 * static_cast<std::size_t>( std::ceil ( length_x / 2 / resolution ) );
+    cols_ = 2 * static_cast<std::size_t>( std::ceil ( length_y / 2 / resolution ) );
+    resolution_ = resolution;
+    length_x_ = rows_ * resolution;
+    length_y_ = cols_ * resolution;
     for ( auto& name : names )
     {
-        this->maps_.emplace( name, Eigen::MatrixXf::Constant( rows, cols, std::numeric_limits<float>::quiet_NaN() ) );
+        maps_.emplace( name, Eigen::MatrixXf::Constant( rows_, cols_, std::numeric_limits<float>::quiet_NaN() ) );
     }
 }
 
 std::size_t GridMap::getRows() const
 {
-    return this->rows_;
+    return rows_;
 }
 
 std::size_t GridMap::getColumns() const
 {
-    return this->cols_;
+    return cols_;
 }
 
-float GridMap::getLength() const
+float GridMap::getLengthX() const
 {
-    return this->length_;
+    return length_x_;
 }
 
-float GridMap::getWidth() const
+float GridMap::getLengthY() const
 {
-    return this->width_;
+    return length_y_;
 }
 
 float GridMap::getResolution() const
 {
-    return this->resolution_;
+    return resolution_;
 }
 
 void GridMap::add(const std::string name)
 {
-    this->maps_.emplace(name, Eigen::MatrixXf(this->rows_, this->cols_));
+    maps_.emplace(name, Eigen::MatrixXf(rows_, cols_));
 }
 
-bool GridMap::resize(std::size_t rows, std::size_t cols)
+bool GridMap::resize(float length_x, float length_y)
 {
-    if ( rows == 0 || cols == 0 )
+    if ( length_x <= 0 || length_y <= 0 )
     {
         return false;
     }
-    // Calculate the center of the old and new matrices
-    std::size_t old_center_row = (this->rows_ - 1) / 2;
-    std::size_t old_center_col = (this->cols_ - 1) / 2;
-    std::size_t new_center_row = (rows - 1) / 2;
-    std::size_t new_center_col = (cols - 1) / 2;
+
+    // Keep rows and cols even numbers.
+    std::size_t new_rows = 2 * static_cast<std::size_t>( std::ceil ( length_x / 2 / resolution_ ) );
+    std::size_t new_cols = 2 * static_cast<std::size_t>( std::ceil ( length_y / 2 / resolution_ ) );
 
     // Calculate the top-left corner of the old matrix in the new matrix
-    std::size_t new_start_row = new_center_row > old_center_row ? new_center_row - old_center_row : 0;
-    std::size_t new_start_col = new_center_col > old_center_col ? new_center_col - old_center_col : 0;
-    std::size_t old_start_row = old_center_row > new_center_row ? old_center_row - new_center_row : 0;
-    std::size_t old_start_col = old_center_col > new_center_col ? old_center_col - new_center_col : 0;
+    std::size_t new_start_row = new_rows > rows_ ? ( ( new_rows - rows_ ) / 2 ) : 0;
+    std::size_t new_start_col = new_cols > cols_ ? ( ( new_cols - cols_ ) / 2 ) : 0;
+    std::size_t old_start_row = rows_ > new_rows ? ( ( rows_ - new_rows ) / 2 ) : 0;
+    std::size_t old_start_col = cols_ > new_cols ? ( ( cols_ - new_cols ) / 2 ) : 0;
 
     // Calculate the size of the overlapping region
-    std::size_t min_rows = std::min(rows, this->rows_);
-    std::size_t min_cols = std::min(cols, this->cols_);
+    std::size_t min_rows = std::min( new_rows, rows_ );
+    std::size_t min_cols = std::min( new_cols, cols_ );
 
-    for (auto& pair : maps_)
+    for ( auto& pair : maps_ )
     {
-        Eigen::MatrixXf new_map = Eigen::MatrixXf::Constant(rows, cols, std::numeric_limits<float>::quiet_NaN());
+        Eigen::MatrixXf new_map = Eigen::MatrixXf::Constant(new_rows, new_cols, std::numeric_limits<float>::quiet_NaN());
         new_map.block(new_start_row, new_start_col, min_rows, min_cols) = pair.second.block(old_start_row, old_start_col, min_rows, min_cols);
         pair.second = std::move(new_map);
     }
 
-    this->rows_ = rows;
-    this->cols_ = cols;
-    this->length_ = cols * this->resolution_;
-    this->width_ = rows * this->resolution_;
+    rows_ = new_rows;
+    cols_ = new_cols;
+    length_x_ = static_cast<float>( rows_ ) * resolution_;
+    length_y_ = static_cast<float>( cols_ ) * resolution_;
 
     return true;
 }

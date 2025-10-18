@@ -17,9 +17,6 @@
 #include <pcl/point_cloud.h>
 #include <mobile_planner/grid_map.h>
 
-// Forward declaration
-struct PairHash;
-
 /**
  * @class ElevationMap
  * @brief Elevation mapping class for mobile robot navigation
@@ -38,13 +35,14 @@ public:
     
     /**
      * @brief Construct a new Elevation Map object
-     * 
-     * @param names Names of the map layers to initialize
-     * @param rows Number of rows in the grid map
-     * @param cols Number of columns in the grid map
+     *
+     * @param method Method to use for updating the elevation map, "direct" or "gaussian_process"
+     * @param length_x Number of rows in the grid map
+     * @param length_y Number of columns in the grid map
      * @param resolution Resolution of the grid map in meters per cell
      * @param num_max_points_in_grid Maximum number of points to keep per grid cell
      * @param elevation_map_filter_type Type of elevation map filter to use (Gaussian, boxblur, bilateral, etc.)
+     * @param max_height Maximum height of point cloud (h_max)
      * @param slope_weight Weight for slope map (ω1)
      * @param step_height_weight Weight for step height map (ω2)
      * @param roughness_weight Weight for roughness map (ω3)
@@ -56,8 +54,9 @@ public:
      * @param sigma_n Gaussian process noise variance parameter
      */
     explicit ElevationMap(
-        std::size_t rows,
-        std::size_t cols,
+        const std::string& method,
+        float length_x,
+        float length_y,
         float resolution,
         std::size_t num_max_points_in_grid,
         const std::string& elevation_map_filter_type,
@@ -79,26 +78,11 @@ public:
     virtual ~ElevationMap() = default;
     
     /**
-     * @brief Update elevation map with a new point cloud frame using direct method
-     * 
-     * Processes a point cloud frame and updates the elevation map using Kalman filtering.
-     * Automatically extends the map if the point cloud exceeds current boundaries.
-     * Also computes slope map, step height map, roughness map and traversability map.
-     * 
+     * @brief Update elevation map with a new point cloud frame with method specified by `method_`
      * @param point_cloud Input point cloud frame aligned with odometry
      */
-    void updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud );
-    
-    /**
-     * @brief Update elevation map using full Gaussian Process regression
-     * 
-     * Processes the entire point cloud using Gaussian Process regression to build
-     * a complete elevation map. This is suitable for offline processing of full maps.
-     * 
-     * @param point_cloud Input point cloud containing the full map data
-     */
-    void updateFullGP( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud );
-    
+    void update( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud );
+
     /**
      * @brief Request traversability map
      * 
@@ -144,7 +128,11 @@ public:
     void setGPNoiseVariance(float sigma_n) { sigma_n_ = sigma_n; }
 
 private:
+    // Method to use for updating the elevation map, "direct" or "gaussian_process"
+    std::string method_;
+
     std::size_t num_max_points_in_grid_;
+
     std::string elevation_map_filter_type_;
 
     // maximum height of point cloud. any point above this height will be removed.
@@ -162,17 +150,38 @@ private:
     float l_;             // Length scale
     float sigma_f_;       // Signal variance
     float sigma_n_;       // Noise variance
+
+    /**
+     * @brief Update elevation map with a new point cloud frame using direct method
+     * 
+     * Processes a point cloud frame and updates the elevation map using Kalman filtering.
+     * Automatically extends the map if the point cloud exceeds current boundaries.
+     * Also computes slope map, step height map, roughness map and traversability map.
+     * 
+     * @param point_cloud Input point cloud frame aligned with odometry
+     */
+    void updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud );
+    
+    /**
+     * @brief Update elevation map using full Gaussian Process regression
+     * 
+     * Processes the entire point cloud using Gaussian Process regression to build
+     * a complete elevation map. This is suitable for offline processing of full maps.
+     * 
+     * @param point_cloud Input point cloud containing the full map data
+     */
+    void updateFullGP( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud );
     
     /**
      * @brief Divide point cloud into grid cells
      * 
      * Partitions a point cloud into grid cells based on XY coordinates.
      * 
-     * @param grid_points Output map of grid cell indices to point vectors
+     * @param cell_heights Output map of grid cell indices to point vectors
      * @param point_cloud Input point cloud to partition
      */
     void dividePointCloudToGridCells(
-        std::unordered_map<std::pair<int, int>, std::vector<pcl::PointXYZ>, PairHash>& grid_points,
+        std::vector<std::vector<float>>& cell_heights,
         const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud
     ) const;
     
@@ -181,18 +190,16 @@ private:
      * 
      * For each grid cell, keeps only the highest points up to the maximum limit.
      * 
-     * @param grid_points Map of grid cell indices to point vectors (modified in place)
+     * @param cell_heights Map of grid cell indices to point vectors (modified in place)
      */
-    void extractPointCloudTopSurface(
-        std::unordered_map<std::pair<int, int>, std::vector<pcl::PointXYZ>, PairHash>& grid_points
-    ) const;
+    void extractPointCloudTopSurface( std::vector<std::vector<float>>& cell_heights ) const;
     
     /**
      * @brief Remove points above maximum height limit
      * 
      * Removes points from the point cloud that are above the maximum height limit.
      * 
-     * @param grid_points Map of grid cell indices to point vectors (modified in place)
+     * @param cell_heights Map of grid cell indices to point vectors (modified in place)
      */
     void removeOverHeightPoints( pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud ) const;
 

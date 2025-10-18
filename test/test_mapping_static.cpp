@@ -32,12 +32,13 @@ int main()
     YAML::Node config = YAML::LoadFile("config/config.yaml");
     
     float resolution = config["grid_map"]["resolution"].as<float>();
-    std::size_t rows = config["grid_map"]["default_rows"].as<std::size_t>();
-    std::size_t cols = config["grid_map"]["default_cols"].as<std::size_t>();
+    std::size_t rows = config["grid_map"]["default_length_x"].as<std::size_t>();
+    std::size_t cols = config["grid_map"]["default_length_y"].as<std::size_t>();
     std::size_t max_top_points_in_grid = config["grid_map"]["max_top_points_in_grid"].as<std::size_t>();
     std::string elevation_map_filter_type = config["elevation_map"]["elevation_map_filter_type"].as<std::string>();
     
     float max_height = config["elevation_map"]["max_height"].as<float>();
+    std::string method = config["elevation_map"]["method"].as<std::string>();
     
     // Direct method parameters
     float slope_weight = config["elevation_map"]["direct"]["slope_weight"].as<float>();
@@ -53,6 +54,7 @@ int main()
     float sigma_n = config["elevation_map"]["gaussian_process"]["sigma_n"].as<float>();
     
     ElevationMap elevation_map(
+        method,
         rows,
         cols,
         resolution,
@@ -72,7 +74,7 @@ int main()
 
     // Update the map with the point cloud
     auto processing_start = std::chrono::high_resolution_clock::now();
-    elevation_map.updateDirect(cloud);
+    elevation_map.update(cloud);
     auto processing_end = std::chrono::high_resolution_clock::now();
 
     // Export all maps as binary files

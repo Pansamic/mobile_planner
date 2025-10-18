@@ -1,5 +1,5 @@
 #include <cstdint>
-#include <unordered_map>
+#include <map>
 #include <string>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -8,21 +8,24 @@ class GridMap
 {
 public:
     GridMap() = delete;
-    explicit GridMap(const std::vector<std::string>& names, std::size_t rows, std::size_t cols, float resolution);
+    explicit GridMap(const std::vector<std::string>& names, float length_x, float length_y, float resolution);
     virtual ~GridMap() = default;
     std::size_t getRows() const;
     std::size_t getColumns() const;
-    float getLength() const;
-    float getWidth() const;
+    float getLengthX() const;
+    float getLengthY() const;
     float getResolution() const;
     void add(const std::string name);
-    bool resize(std::size_t rows, std::size_t cols);
-    
-    // Public members
-    std::unordered_map<std::string, Eigen::MatrixXf> maps_;
+    bool resize(float length_x, float length_y);
+     
+    std::map<std::string, Eigen::MatrixXf> maps_;
+
+    // map rows, start from 1
     std::size_t rows_;
+    // map columns, start from 1
     std::size_t cols_;
-    float length_;
-    float width_;
+    
+    float length_x_;
+    float length_y_;
     float resolution_;
 };

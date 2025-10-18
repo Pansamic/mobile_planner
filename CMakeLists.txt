@@ -28,6 +28,8 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+add_compile_options(-mavx -mavx2 -fopenmp)
+
 # Source files
 set(MOBILE_PLANNER_SOURCES
     src/elevation_map.cpp
@@ -61,9 +63,7 @@ target_include_directories(mobile_planner PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_compile_options(mobile_planner PRIVATE
-    -mavx -mavx2
-)
+
 
 # Install targets
 install(TARGETS mobile_planner
