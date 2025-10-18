@@ -1,0 +1,20 @@
+grid_map:
+  resolution: 0.1
+  default_rows: 100
+  default_cols: 100
+  max_top_points_in_grid: 5
+
+elevation_map:
+  elevation_map_filter_type: gaussian
+  max_height: 1.5
+  direct:
+    slope_weight: 0.33
+    step_height_weight: 0.33
+    roughness_weight: 0.34
+    slope_critical: 0.3
+    step_height_critical: 0.1
+    roughness_critical: 0.05
+  gaussian_process:
+    l: 2.0
+    sigma_f: 1.0
+    sigma_n: 0.2
