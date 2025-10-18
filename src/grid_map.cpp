@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <mobile_planner/grid_map.h>
 
-GridMap::GridMap(const std::vector<std::string>& names, float length_x, float length_y, float resolution)
+GridMap::GridMap(std::size_t num_maps, float length_x, float length_y, float resolution)
 {
     // Keep rows and cols even numbers.
     rows_ = 2 * static_cast<std::size_t>( std::ceil ( length_x / 2 / resolution ) );
@@ -19,10 +19,9 @@ GridMap::GridMap(const std::vector<std::string>& names, float length_x, float le
     resolution_ = resolution;
     length_x_ = rows_ * resolution;
     length_y_ = cols_ * resolution;
-    for ( auto& name : names )
-    {
-        maps_.emplace( name, Eigen::MatrixXf::Constant( rows_, cols_, std::numeric_limits<float>::quiet_NaN() ) );
-    }
+    
+    // Initialize vector with the same number of maps as names
+    maps_.resize(num_maps, Eigen::MatrixXf::Constant(rows_, cols_, std::numeric_limits<double>::quiet_NaN()));
 }
 
 std::size_t GridMap::getRows() const
@@ -52,7 +51,8 @@ float GridMap::getResolution() const
 
 void GridMap::add(const std::string name)
 {
-    maps_.emplace(name, Eigen::MatrixXf(rows_, cols_));
+    // Add a new map to the vector
+    maps_.emplace_back(Eigen::MatrixXf::Constant(rows_, cols_, std::numeric_limits<double>::quiet_NaN()));
 }
 
 bool GridMap::resize(float length_x, float length_y)
@@ -76,11 +76,11 @@ bool GridMap::resize(float length_x, float length_y)
     std::size_t min_rows = std::min( new_rows, rows_ );
     std::size_t min_cols = std::min( new_cols, cols_ );
 
-    for ( auto& pair : maps_ )
+    for ( auto& map : maps_ )
     {
-        Eigen::MatrixXf new_map = Eigen::MatrixXf::Constant(new_rows, new_cols, std::numeric_limits<float>::quiet_NaN());
-        new_map.block(new_start_row, new_start_col, min_rows, min_cols) = pair.second.block(old_start_row, old_start_col, min_rows, min_cols);
-        pair.second = std::move(new_map);
+        Eigen::MatrixXf new_map = Eigen::MatrixXf::Constant(new_rows, new_cols, std::numeric_limits<double>::quiet_NaN());
+        new_map.block(new_start_row, new_start_col, min_rows, min_cols) = map.block(old_start_row, old_start_col, min_rows, min_cols);
+        map = std::move(new_map);
     }
 
     rows_ = new_rows;

@@ -10,6 +10,7 @@
 
 int main()
 {
+    const std::array<std::string, 7> map_names = {"elevation", "elevation_filtered", "uncertainty", "slope", "step_height", "roughness", "traversability"};
     // Start timing
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -78,10 +79,10 @@ int main()
     auto processing_end = std::chrono::high_resolution_clock::now();
 
     // Export all maps as binary files
-    for (const auto& map_entry : elevation_map.maps_)
+    for ( std::size_t i = 0; i < elevation_map.maps_.size(); i++)
     {
-        const std::string& map_name = map_entry.first;
-        const Eigen::MatrixXf& map = map_entry.second;
+        const Eigen::MatrixXf& map = elevation_map.maps_[i];
+        const std::string& map_name = map_names[i];
         
         std::string filepath = "temp/binary/maps_direct_static/" + map_name + ".bin";
         

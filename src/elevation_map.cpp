@@ -25,7 +25,7 @@ ElevationMap::ElevationMap(
     float sigma_f,
     float sigma_n
 )
-    : GridMap( { "elevation", "uncertainty", "slope", "step_height", "roughness", "traversability", "elevation_filtered" }, length_x, length_y, resolution ),
+    : GridMap( 7, length_x, length_y, resolution ),
       method_( method ),
       num_max_points_in_grid_( num_max_points_in_grid ),
       elevation_map_filter_type_( elevation_map_filter_type ),
@@ -91,8 +91,8 @@ void ElevationMap::updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point
         }
         float var_height = sum_sq_diff / heights.size();
         
-        float& existing_mean = maps_["elevation"]( row, col );
-        float& existing_var = maps_["uncertainty"]( row, col );
+        float& existing_mean = maps_[ELEVATION](row, col);
+        float& existing_var = maps_[UNCERTAINTY](row, col);
         
         // If this is the first measurement for this cell, just use the new values
         if ( std::isnan( existing_mean ) || std::isnan( existing_var ) )
@@ -103,15 +103,15 @@ void ElevationMap::updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point
         else
         {
             // Fuse with existing measurement using Kalman filter
-            fuseElevationWithKalmanFilter( existing_mean, existing_var, mean_height, var_height );
+            fuseElevationWithKalmanFilter( existing_mean, existing_var, static_cast<double>(mean_height), static_cast<double>(var_height) );
         }
     }
     
     // Create temporary elevation map for filtering
-    maps_["elevation_filtered"] = maps_["elevation"];
+    maps_[ELEVATION_FILTERED] = maps_[ELEVATION];
 
     // Fill NaN cells with minimum elevation value in 3x3 window
-    fillNaNWithMinimumInWindow( maps_["elevation_filtered"] );
+    fillNaNWithMinimumInWindow( maps_[ELEVATION_FILTERED] );
     
     // Apply Gaussian filter to filtered elevation map
     filterElevation( elevation_map_filter_type_ );
@@ -142,7 +142,7 @@ void ElevationMap::dividePointCloudToGridCells(
     const float half_range_y = length_y_ / 2.0f;
     
     // Reserve space for cell_heights based on grid map.
-    cell_heights.reserve( rows_ * cols_ );
+    cell_heights.resize( rows_ * cols_ );
 
     // Iterate through all points in the point cloud
     for (const auto& point : point_cloud->points)
@@ -190,29 +190,23 @@ void ElevationMap::filterElevation( const std::string& filter_type )
 {
     if ( filter_type == "boxblur" )
     {
-        applyBoxBlurFilter( maps_["elevation_filtered"] );
+        applyBoxBlurFilter( maps_[ELEVATION_FILTERED] );
     }
     else if ( filter_type == "gaussian" )
     {
-        applyGaussianFilter( maps_["elevation_filtered"] );
+        applyGaussianFilter( maps_[ELEVATION_FILTERED] );
     }
     else if ( filter_type == "bilateral" )
     {
-        applyBilateralFilter( maps_["elevation_filtered"] );
+        applyBilateralFilter( maps_[ELEVATION_FILTERED] );
     }
 }
 
 void ElevationMap::computeSlopeMap()
 {
-    // Ensure elevation map exists
-    if ( maps_.find( "elevation" ) == maps_.end() )
-    {
-        return;
-    }
-    
     // Use direct reference to avoid copy construction
-    Eigen::MatrixXf& slope_map = maps_["slope"];
-    const Eigen::MatrixXf& elevation = maps_["elevation_filtered"];
+    Eigen::MatrixXf& slope_map = maps_[SLOPE];
+    const Eigen::MatrixXf& elevation = maps_[ELEVATION_FILTERED];
     
     // Initialize with zeros
     slope_map.setZero( rows_, cols_ );
@@ -256,16 +250,10 @@ void ElevationMap::computeSlopeMap()
 }
 
 void ElevationMap::computeStepHeightMap()
-{
-    // Ensure filtered elevation map exists
-    if ( maps_.find( "elevation_filtered" ) == maps_.end() )
-    {
-        return;
-    }
-    
+{ 
     // Use direct reference to avoid copy construction
-    Eigen::MatrixXf& step_height_map = maps_["step_height"];
-    const Eigen::MatrixXf& elevation = maps_["elevation_filtered"];
+    Eigen::MatrixXf& step_height_map = maps_[STEP_HEIGHT];
+    const Eigen::MatrixXf& elevation = maps_[ELEVATION_FILTERED];
     
     // Initialize with zeros
     step_height_map.setZero( rows_, cols_ );
@@ -326,15 +314,9 @@ void ElevationMap::computeStepHeightMap()
 
 void ElevationMap::computeRoughnessMap()
 {
-    // Ensure filtered elevation map exists
-    if ( maps_.find( "elevation_filtered" ) == maps_.end() )
-    {
-        return;
-    }
-    
     // Use direct reference to avoid copy construction
-    Eigen::MatrixXf& roughness_map = maps_["roughness"];
-    const Eigen::MatrixXf& elevation = maps_["elevation_filtered"];
+    Eigen::MatrixXf& roughness_map = maps_[ROUGHNESS];
+    const Eigen::MatrixXf& elevation = maps_[ELEVATION_FILTERED];
     
     // Initialize with zeros
     roughness_map.setZero( rows_, cols_ );
@@ -403,19 +385,11 @@ void ElevationMap::computeRoughnessMap()
 
 void ElevationMap::computeTraversabilityMap()
 {
-    // Ensure required maps exist
-    if ( maps_.find( "slope" ) == maps_.end() || 
-         maps_.find( "step_height" ) == maps_.end() || 
-         maps_.find( "roughness" ) == maps_.end() )
-    {
-        return;
-    }
-    
     // Use direct reference to avoid copy construction
-    Eigen::MatrixXf& traversability_map = maps_["traversability"];
-    const Eigen::MatrixXf& slope_map = maps_["slope"];
-    const Eigen::MatrixXf& step_height_map = maps_["step_height"];
-    const Eigen::MatrixXf& roughness_map = maps_["roughness"];
+    Eigen::MatrixXf& traversability_map = maps_[TRAVERSABILITY];
+    const Eigen::MatrixXf& slope_map = maps_[SLOPE];
+    const Eigen::MatrixXf& step_height_map = maps_[STEP_HEIGHT];
+    const Eigen::MatrixXf& roughness_map = maps_[ROUGHNESS];
     
     // Initialize with zeros
     traversability_map.setZero( rows_, cols_ );
@@ -461,8 +435,9 @@ void ElevationMap::extractPointCloudTopSurface( std::vector<std::vector<float>>&
 }
 Eigen::MatrixXf ElevationMap::requestTraversabilityMap()
 {
-    // Return the traversability map directly
-    return maps_["traversability"];
+    // Convert from Eigen::MatrixXf to Eigen::MatrixXf for return
+    Eigen::MatrixXf result = maps_[TRAVERSABILITY].cast<float>();
+    return result;
 }
 
 
@@ -522,9 +497,12 @@ bool ElevationMap::checkAndExtendMapIfNeeded( const pcl::PointCloud<pcl::PointXY
     return true;
 }
 
-void ElevationMap::fillNaNWithMinimumInWindow( Eigen::MatrixXf& map )
+void ElevationMap::fillNaNWithMinimumInWindow(Eigen::MatrixXf& map)
 {
-    Eigen::MatrixXf filled_map = map;
+    Eigen::MatrixXf temp_map = map;
+    Eigen::MatrixXf filled_map = temp_map;
+    map = filled_map;
+    map = filled_map.cast<float>();
     
     // 3x3 window size
     int window_size = 3;
@@ -577,9 +555,10 @@ void ElevationMap::fillNaNWithMinimumInWindow( Eigen::MatrixXf& map )
     map = filled_map;
 }
 
-void ElevationMap::applyBoxBlurFilter( Eigen::MatrixXf& map )
+void ElevationMap::applyBoxBlurFilter(Eigen::MatrixXf& map)
 {
-    Eigen::MatrixXf filtered_map = map;
+    Eigen::MatrixXf temp_map = map;
+    Eigen::MatrixXf filtered_map = temp_map;
     
     // 3x3 window size
     int window_size = 3;
@@ -625,19 +604,20 @@ void ElevationMap::applyBoxBlurFilter( Eigen::MatrixXf& map )
         }
     }
     
-    map = filtered_map;
+    map = filtered_map.cast<float>();
 }
 
-void ElevationMap::applyGaussianFilter( Eigen::MatrixXf& map )
+void ElevationMap::applyGaussianFilter(Eigen::MatrixXf& map)
 {
-    Eigen::MatrixXf filtered_map = map;
+    Eigen::MatrixXf temp_map = map;
+    Eigen::MatrixXf filtered_map = temp_map;
     
     // 5x5 window size
     int window_size = 5;
     int half_window = window_size / 2;
     
     // Gaussian kernel (5x5, sigma=1.0)
-    float kernel[5][5] = {
+    static const float kernel[5][5] = {
         { 0.003765f, 0.015019f, 0.023792f, 0.015019f, 0.003765f },
         { 0.015019f, 0.059912f, 0.094907f, 0.059912f, 0.015019f },
         { 0.023792f, 0.094907f, 0.150342f, 0.094907f, 0.023792f },
@@ -685,12 +665,13 @@ void ElevationMap::applyGaussianFilter( Eigen::MatrixXf& map )
         }
     }
     
-    map = filtered_map;
+    map = filtered_map.cast<float>();
 }
 
-void ElevationMap::applyBilateralFilter( Eigen::MatrixXf& map )
+void ElevationMap::applyBilateralFilter(Eigen::MatrixXf& map)
 {
-    Eigen::MatrixXf filtered_map = map;
+    Eigen::MatrixXf temp_map = map;
+    Eigen::MatrixXf filtered_map = temp_map;
     
     // 5x5 window size
     int window_size = 5;
@@ -760,5 +741,5 @@ void ElevationMap::applyBilateralFilter( Eigen::MatrixXf& map )
         }
     }
     
-    map = filtered_map;
+    map = filtered_map.cast<float>();
 }

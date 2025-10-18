@@ -29,6 +29,19 @@ class ElevationMap : public GridMap
 {
 public:
     /**
+     * @brief Enum for map types
+     */
+    enum MapType {
+        ELEVATION = 0,
+        UNCERTAINTY,
+        SLOPE,
+        STEP_HEIGHT,
+        ROUGHNESS,
+        TRAVERSABILITY,
+        ELEVATION_FILTERED
+    };
+
+    /**
      * @brief Delete default constructor
      */
     ElevationMap() = delete;
