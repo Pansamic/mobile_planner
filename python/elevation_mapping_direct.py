@@ -6,9 +6,25 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy import ndimage
 from scipy.ndimage import gaussian_filter
 import os
+import yaml
 
 
-def point_cloud_process_direct(point_cloud, grid_size=0.1, max_height=1.5, max_top_points_in_grid=5):
+def load_config(config_path='config/config.yaml'):
+    """
+    Load configuration from YAML file.
+    
+    Parameters:
+    config_path: Path to the config file
+    
+    Returns:
+    config: Dictionary with configuration parameters
+    """
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+    return config
+
+
+def point_cloud_process_direct(point_cloud, grid_size=None, max_height=None, max_top_points_in_grid=None):
     """
     Process point cloud by grid filtering for direct approach.
     
@@ -21,6 +37,16 @@ def point_cloud_process_direct(point_cloud, grid_size=0.1, max_height=1.5, max_t
     Returns:
     processed_points: numpy array of processed points
     """
+    # Load config if parameters are not provided
+    if grid_size is None or max_height is None or max_top_points_in_grid is None:
+        config = load_config()
+        if grid_size is None:
+            grid_size = config['grid_map']['resolution']
+        if max_height is None:
+            max_height = config['elevation_map']['max_height']
+        if max_top_points_in_grid is None:
+            max_top_points_in_grid = config['grid_map']['max_top_points_in_grid']
+    
     points = np.asarray(point_cloud.points)
     
     # Filter points by max height (z-coordinate)
@@ -58,7 +84,7 @@ def point_cloud_process_direct(point_cloud, grid_size=0.1, max_height=1.5, max_t
         return np.empty((0, 3))
 
 
-def build_elevation_map_direct(points, resolution=0.1):
+def build_elevation_map_direct(points, resolution=None):
     """
     Build elevation map from point cloud using direct statistical approach.
     
@@ -72,6 +98,11 @@ def build_elevation_map_direct(points, resolution=0.1):
     xq: X coordinates of grid
     yq: Y coordinates of grid
     """
+    # Load config if resolution is not provided
+    if resolution is None:
+        config = load_config()
+        resolution = config['grid_map']['resolution']
+        
     if len(points) == 0:
         return None, None, None, None
         
@@ -447,11 +478,24 @@ def main():
     filename = 'assets/room.ply'  # Replace with your actual file
     original_point_cloud = o3d.io.read_point_cloud(filename)
     
+    # Load configuration
+    config = load_config()
+    
+    # Extract parameters from config
+    grid_resolution = config['grid_map']['resolution']
+    max_height = config['elevation_map']['max_height']
+    max_top_points_in_grid = config['grid_map']['max_top_points_in_grid']
+    
     # Process point cloud
-    processed_points = point_cloud_process_direct(original_point_cloud, grid_size=0.1, max_height=1.5, max_top_points_in_grid=3)
+    processed_points = point_cloud_process_direct(
+        original_point_cloud, 
+        grid_size=grid_resolution, 
+        max_height=max_height, 
+        max_top_points_in_grid=max_top_points_in_grid
+    )
     
     # Build elevation map using direct statistical approach
-    mean_map, std_map, xq, yq = build_elevation_map_direct(processed_points, resolution=0.1)
+    mean_map, std_map, xq, yq = build_elevation_map_direct(processed_points, resolution=grid_resolution)
     
     # Fill NaN values with minimum of surrounding cells
     if mean_map is not None:

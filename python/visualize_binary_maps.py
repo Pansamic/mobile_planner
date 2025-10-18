@@ -6,9 +6,26 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import os
 import sys
+import yaml
 
 # Use non-interactive backend to avoid Qt issues
 # matplotlib.use('Agg')
+
+
+def load_config(config_path='config/config.yaml'):
+    """
+    Load configuration from YAML file.
+    
+    Parameters:
+    config_path: Path to the config file
+    
+    Returns:
+    config: Dictionary with configuration parameters
+    """
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+    return config
+
 
 def load_binary_map(filepath):
     """
@@ -35,7 +52,8 @@ def load_binary_map(filepath):
         print(f"Error loading {filepath}: {e}")
         return None
 
-def create_coordinate_grids(map_data, resolution=0.1):
+
+def create_coordinate_grids(map_data, resolution=None):
     """
     Create coordinate grids for plotting.
     
@@ -46,11 +64,17 @@ def create_coordinate_grids(map_data, resolution=0.1):
     Returns:
     xq, yq: Meshgrid coordinates
     """
+    # Load config if resolution is not provided
+    if resolution is None:
+        config = load_config()
+        resolution = config['grid_map']['resolution']
+    
     rows, cols = map_data.shape
     x_range = np.arange(0, cols * resolution, resolution)
     y_range = np.arange(0, rows * resolution, resolution)
     xq, yq = np.meshgrid(x_range[:cols], y_range[:rows])
     return xq, yq
+
 
 def visualize_map(map_data, title, filename, xq, yq, colormap='jet'):
     """
@@ -89,7 +113,12 @@ def visualize_map(map_data, title, filename, xq, yq, colormap='jet'):
     plt.close(fig)
     print(f"Saved {filename}")
 
+
 def main():
+    # Load configuration
+    config = load_config()
+    grid_resolution = config['grid_map']['resolution']
+    
     # Ensure temp directory exists
     if not os.path.exists('temp/figure/maps_direct_static_cpp'):
         print("Error: maps directory not found. Run the C++ test program first.")
@@ -130,7 +159,7 @@ def main():
         # Store elevation map for coordinate grid creation
         if map_name == 'elevation' and elevation_map is None:
             elevation_map = map_data
-            xq, yq = create_coordinate_grids(map_data)
+            xq, yq = create_coordinate_grids(map_data, resolution=grid_resolution)
             
         # Create visualization
         title = f'{map_name.replace("_", " ").title()} Map'
@@ -138,6 +167,7 @@ def main():
         visualize_map(map_data, title, output_file, xq, yq)
     
     print(f"All visualizations saved to {output_dir}")
+
 
 if __name__ == "__main__":
     main()

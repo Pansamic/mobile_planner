@@ -5,9 +5,25 @@ from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C, WhiteKern
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import yaml
 
 
-def point_cloud_process(point_cloud, grid_size=0.1, max_height=1.5, max_points_in_grid=5):
+def load_config(config_path='config/config.yaml'):
+    """
+    Load configuration from YAML file.
+    
+    Parameters:
+    config_path: Path to the config file
+    
+    Returns:
+    config: Dictionary with configuration parameters
+    """
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+    return config
+
+
+def point_cloud_process(point_cloud, grid_size=None, max_height=None, max_points_in_grid=None):
     """
     Process point cloud by grid filtering.
     
@@ -20,6 +36,16 @@ def point_cloud_process(point_cloud, grid_size=0.1, max_height=1.5, max_points_i
     Returns:
     processed_points: numpy array of processed points
     """
+    # Load config if parameters are not provided
+    if grid_size is None or max_height is None or max_points_in_grid is None:
+        config = load_config()
+        if grid_size is None:
+            grid_size = config['grid_map']['resolution']
+        if max_height is None:
+            max_height = config['elevation_map']['max_height']
+        if max_points_in_grid is None:
+            max_points_in_grid = config['grid_map']['max_top_points_in_grid']
+    
     points = np.asarray(point_cloud.points)
     
     # Filter points by max height (z-coordinate)
@@ -57,7 +83,7 @@ def point_cloud_process(point_cloud, grid_size=0.1, max_height=1.5, max_points_i
         return np.empty((0, 3))
 
 
-def build_elevation_map(point_cloud, rate_down_sample=1.0, roll=0, pitch=0, max_height=1.5):
+def build_elevation_map(point_cloud, rate_down_sample=1.0, roll=0, pitch=0, max_height=None):
     """
     Build elevation map from point cloud using Gaussian Process regression.
     
@@ -74,6 +100,11 @@ def build_elevation_map(point_cloud, rate_down_sample=1.0, roll=0, pitch=0, max_
     xq: X coordinates of grid
     yq: Y coordinates of grid
     """
+    
+    # Load config if max_height is not provided
+    if max_height is None:
+        config = load_config()
+        max_height = config['elevation_map']['max_height']
     
     # Downsample point cloud for speed if needed
     if rate_down_sample < 1.0:
@@ -112,7 +143,10 @@ def build_elevation_map(point_cloud, rate_down_sample=1.0, roll=0, pitch=0, max_
     map_x_max = np.max(px)
     map_y_min = np.min(py)
     map_y_max = np.max(py)
-    resolution = 0.1  # meters per cell
+    
+    # Load grid resolution from config
+    config = load_config()
+    resolution = config['grid_map']['resolution']
     
     # Create meshgrid
     x_range = np.arange(map_x_min, map_x_max - resolution, resolution)
@@ -124,10 +158,16 @@ def build_elevation_map(point_cloud, rate_down_sample=1.0, roll=0, pitch=0, max_
     x_train = np.column_stack((px, py))  # Inputs: 2D locations
     y_train = pz  # Output: elevations
     
+    # Get Gaussian Process parameters from config
+    gp_config = config['elevation_map']['gaussian_process']
+    l = gp_config['l']
+    sigma_f = gp_config['sigma_f']
+    sigma_n = gp_config['sigma_n']
+    
     # Fit GP with RBF kernel - optimized settings for speed
     # Using a simpler kernel and fewer optimization restarts for performance
-    kernel = C(1.0, constant_value_bounds="fixed") * RBF([1.0, 1.0], length_scale_bounds="fixed") + \
-             WhiteKernel(0.1, noise_level_bounds="fixed")
+    kernel = C(sigma_f, constant_value_bounds="fixed") * RBF([l, l], length_scale_bounds="fixed") + \
+             WhiteKernel(sigma_n, noise_level_bounds="fixed")
     
     # Reduced complexity for faster computation
     gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-5, n_restarts_optimizer=5, random_state=42)
@@ -201,19 +241,32 @@ def visualize_elevation_map(mh, msigma, xq, yq, original_point_cloud, processed_
 
 
 def main():
+    # Load configuration
+    config = load_config()
+    
+    # Extract parameters from config
+    grid_resolution = config['grid_map']['resolution']
+    max_height = config['elevation_map']['max_height']
+    max_top_points_in_grid = config['grid_map']['max_top_points_in_grid']
+    
     # Load point cloud
     filename = 'assets/room.ply'  # Replace with your actual file
     original_point_cloud = o3d.io.read_point_cloud(filename)
     
     # Process point cloud
-    processed_points = point_cloud_process(original_point_cloud, grid_size=0.1, max_height=1.5, max_points_in_grid=1)
+    processed_points = point_cloud_process(
+        original_point_cloud, 
+        grid_size=grid_resolution, 
+        max_height=max_height, 
+        max_points_in_grid=max_top_points_in_grid
+    )
     
     # Create a new point cloud from processed points for elevation mapping
     processed_point_cloud = o3d.geometry.PointCloud()
     processed_point_cloud.points = o3d.utility.Vector3dVector(processed_points)
     
     # Build elevation map
-    mh, msigma, xq, yq = build_elevation_map(processed_point_cloud, 1.0, 0, 0, 1.5)
+    mh, msigma, xq, yq = build_elevation_map(processed_point_cloud, 1.0, 0, 0, max_height)
     
     # Create visualization
     visualize_elevation_map(mh, msigma, xq, yq, original_point_cloud, processed_points)
