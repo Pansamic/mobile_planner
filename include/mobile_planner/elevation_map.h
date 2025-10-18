@@ -33,12 +33,12 @@ public:
      */
     enum MapType {
         ELEVATION = 0,
+        ELEVATION_FILTERED,
         UNCERTAINTY,
         SLOPE,
         STEP_HEIGHT,
         ROUGHNESS,
         TRAVERSABILITY,
-        ELEVATION_FILTERED
     };
 
     /**
