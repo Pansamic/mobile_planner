@@ -45,9 +45,9 @@ def load_binary_map(filepath):
             
             # Read data
             data = np.frombuffer(f.read(), dtype=np.float32)
-            map_data = data.reshape((rows, cols))
+            map_data = data.reshape((cols, rows))
             
-        return map_data
+        return map_data.T
     except Exception as e:
         print(f"Error loading {filepath}: {e}")
         return None
