@@ -516,12 +516,11 @@ bool ElevationMap::checkAndExtendMapIfNeeded( const pcl::PointCloud<pcl::PointXY
 
 void ElevationMap::fillNaNWithMinimumInWindow(Eigen::MatrixXf& map)
 {
-    const Eigen::MatrixXf& temp_map = map;
-    Eigen::MatrixXf filled_map = temp_map;
+    Eigen::MatrixXf filled_map = map;
     
     // 3x3 window size
     int window_size = 3;
-    int half_window = window_size / 2;
+    int half_window = (window_size - 1) / 2;
     
     for ( int i = 0; i < static_cast<int>( map.rows() ); ++i )
     {
@@ -546,11 +545,11 @@ void ElevationMap::fillNaNWithMinimumInWindow(Eigen::MatrixXf& map)
                              nj >= 0 && nj < static_cast<int>( map.cols() ) )
                         {
                             // Check if value is not NaN
-                            if ( !std::isnan( temp_map( ni, nj ) ) )
+                            if ( !std::isnan( map( ni, nj ) ) )
                             {
-                                if ( temp_map( ni, nj ) < min_value )
+                                if ( map( ni, nj ) < min_value )
                                 {
-                                    min_value = temp_map( ni, nj );
+                                    min_value = map( ni, nj );
                                     found_valid = true;
                                 }
                             }
@@ -572,8 +571,7 @@ void ElevationMap::fillNaNWithMinimumInWindow(Eigen::MatrixXf& map)
 
 void ElevationMap::applyBoxBlurFilter(Eigen::MatrixXf& map)
 {
-    Eigen::MatrixXf temp_map = map;
-    Eigen::MatrixXf filtered_map = temp_map;
+    Eigen::MatrixXf filtered_map = map;
     
     // 3x3 window size
     int window_size = 3;
@@ -619,13 +617,12 @@ void ElevationMap::applyBoxBlurFilter(Eigen::MatrixXf& map)
         }
     }
     
-    map = filtered_map.cast<float>();
+    map = filtered_map;
 }
 
 void ElevationMap::applyGaussianFilter(Eigen::MatrixXf& map)
 {
-    Eigen::MatrixXf temp_map = map;
-    Eigen::MatrixXf filtered_map = temp_map;
+    Eigen::MatrixXf filtered_map = map;
     
     // 5x5 window size
     int window_size = 5;
@@ -680,13 +677,12 @@ void ElevationMap::applyGaussianFilter(Eigen::MatrixXf& map)
         }
     }
     
-    map = filtered_map.cast<float>();
+    map = filtered_map;
 }
 
 void ElevationMap::applyBilateralFilter(Eigen::MatrixXf& map)
 {
-    Eigen::MatrixXf temp_map = map;
-    Eigen::MatrixXf filtered_map = temp_map;
+    Eigen::MatrixXf filtered_map = map;
     
     // 5x5 window size
     int window_size = 5;
@@ -756,5 +752,5 @@ void ElevationMap::applyBilateralFilter(Eigen::MatrixXf& map)
         }
     }
     
-    map = filtered_map.cast<float>();
+    map = filtered_map;
 }
