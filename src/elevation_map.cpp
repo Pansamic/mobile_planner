@@ -73,10 +73,7 @@ void ElevationMap::updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point
         if ( heights.empty() )
         {
             continue;
-        }
-
-        std::size_t row = i / cols_;
-        std::size_t col = i % cols_;        
+        }    
 
         // Calculate mean and variance of points in this cell
         float sum_height = std::accumulate( heights.begin(), heights.end(), 0.0f);
@@ -90,8 +87,8 @@ void ElevationMap::updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point
         }
         float var_height = sum_sq_diff / heights.size();
         
-        float& existing_mean = maps_[ELEVATION](row, col);
-        float& existing_var = maps_[UNCERTAINTY](row, col);
+        float& existing_mean = maps_[ELEVATION].data()[i];
+        float& existing_var = maps_[UNCERTAINTY].data()[i];
         
         // If this is the first measurement for this cell, just use the new values
         if ( std::isnan( existing_mean ) || std::isnan( existing_var ) )
