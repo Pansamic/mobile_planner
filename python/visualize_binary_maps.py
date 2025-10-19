@@ -7,6 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import os
 import sys
 import yaml
+import glob
 
 # Use non-interactive backend to avoid Qt issues
 # matplotlib.use('Agg')
@@ -77,7 +78,7 @@ def create_coordinate_grids(map_data, resolution=None):
     return xq, yq
 
 
-def visualize_map(map_data, title, filename, xq, yq, colormap='jet'):
+def visualize_map_3d(map_data, title, filename, xq, yq, colormap='jet'):
     """
     Create a 3D visualization of a map and save it to a file.
     
@@ -106,66 +107,155 @@ def visualize_map(map_data, title, filename, xq, yq, colormap='jet'):
     ax.set_zlabel('Value')
     
     # Set view angle
-    ax.view_init(elev=70, azim=90)
+    ax.view_init(elev=90, azim=90)
     
     plt.tight_layout()
     plt.savefig(filename, dpi=300)
-    plt.show()
     plt.close(fig)
     print(f"Saved {filename}")
 
 
-def main():
-    # Load configuration
-    config = load_config()
-    grid_resolution = config['grid_map']['resolution']
+def visualize_map_2d(map_data, title, filename, xq, yq, colormap='jet'):
+    """
+    Create a 2D visualization of a map and save it to a file.
     
-    # Ensure temp directory exists
-    if not os.path.exists('temp/figure/maps_direct_static_cpp'):
-        print("Error: maps directory not found. Run the C++ test program first.")
+    Parameters:
+    map_data: 2D numpy array with the map data
+    title: Title for the plot
+    filename: Output filename
+    xq, yq: Coordinate grids
+    colormap: Colormap to use
+    """
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    if map_data is not None and not np.isnan(map_data).all():
+        # Mask NaN values for plotting
+        masked_data = np.ma.masked_where(np.isnan(map_data), map_data)
+        im = ax.pcolormesh(xq, yq, masked_data, cmap=colormap, shading='auto')
+        ax.set_title(title)
+        fig.colorbar(im, ax=ax)
+    else:
+        ax.text(0.5, 0.5, 'No Data', transform=ax.transAxes, ha='center', va='center')
+        ax.set_title(title)
+    
+    ax.set_xlabel('X (m)')
+    ax.set_ylabel('Y (m)')
+    
+    plt.tight_layout()
+    plt.savefig(filename, dpi=300)
+    plt.close(fig)
+    print(f"Saved {filename}")
+
+
+def print_help():
+    """Print help information."""
+    help_text = """
+Usage: python3 visualize_binary_maps.py <input> <output_directory>
+
+Arguments:
+    input              Path to a binary map file or directory containing binary maps
+    output_directory   Directory where visualizations will be saved
+
+Description:
+    This script visualizes binary map files as both 2D and 3D plots.
+    If input is a file, only that file will be visualized.
+    If input is a directory, all valid binary maps in that directory will be visualized.
+"""
+    print(help_text)
+
+
+def process_single_file(filepath, output_dir, resolution=None):
+    """
+    Process a single binary map file.
+    
+    Parameters:
+    filepath: Path to the binary map file
+    output_dir: Directory to save visualizations
+    resolution: Grid resolution in meters
+    """
+    print(f"Loading map from {filepath}...")
+    map_data = load_binary_map(filepath)
+    
+    if map_data is None:
+        print(f"Failed to load map from {filepath}")
         return
     
-    # Ensure output directory exists
-    output_dir = 'temp/figure/maps_direct_static_cpp'
+    # Get filename without extension for title
+    filename = os.path.splitext(os.path.basename(filepath))[0]
+    title = f'{filename.replace("_", " ").title()} Map'
+    
+    # Create coordinate grids
+    xq, yq = create_coordinate_grids(map_data, resolution)
+    
+    # Create 3D visualization
+    output_file_3d = os.path.join(output_dir, f'{filename}_3d.png')
+    visualize_map_3d(map_data, title, output_file_3d, xq, yq)
+    
+    # Create 2D visualization
+    output_file_2d = os.path.join(output_dir, f'{filename}_2d.png')
+    visualize_map_2d(map_data, title, output_file_2d, xq, yq)
+
+
+def process_directory(directory_path, output_dir, resolution=None):
+    """
+    Process all binary map files in a directory.
+    
+    Parameters:
+    directory_path: Path to directory containing binary maps
+    output_dir: Directory to save visualizations
+    resolution: Grid resolution in meters
+    """
+    # Find all .bin files in the directory
+    binary_files = glob.glob(os.path.join(directory_path, "*.bin"))
+    
+    if not binary_files:
+        print(f"No binary map files found in {directory_path}")
+        return
+    
+    print(f"Found {len(binary_files)} binary map files in {directory_path}")
+    
+    for filepath in binary_files:
+        process_single_file(filepath, output_dir, resolution)
+
+
+def main():
+    # Check command line arguments
+    if len(sys.argv) != 3:
+        print("Error: Incorrect number of arguments.")
+        print_help()
+        sys.exit(1)
+    
+    input_path = sys.argv[1]
+    output_dir = sys.argv[2]
+    
+    # Check if input path exists
+    if not os.path.exists(input_path):
+        print(f"Error: Input path '{input_path}' does not exist.")
+        print_help()
+        sys.exit(1)
+    
+    # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
-    # List of map names to process
-    map_names = [
-        'elevation',
-        'uncertainty', 
-        'slope',
-        'step_height',
-        'roughness',
-        'traversability',
-        'elevation_filtered'
-    ]
+    # Load configuration
+    try:
+        config = load_config()
+        grid_resolution = config['grid_map']['resolution']
+    except Exception as e:
+        print(f"Warning: Could not load config file, using default resolution of 0.1")
+        grid_resolution = 0.1
     
-    # Load and visualize each map
-    elevation_map = None
-    xq, yq = None, None
-    
-    for map_name in map_names:
-        filepath = f'temp/binary/maps_direct_static/{map_name}.bin'
-        if not os.path.exists(filepath):
-            print(f"Warning: {filepath} not found")
-            continue
-            
-        print(f"Loading {map_name} map...")
-        map_data = load_binary_map(filepath)
-        
-        if map_data is None:
-            print(f"Failed to load {map_name} map")
-            continue
-            
-        # Store elevation map for coordinate grid creation
-        if map_name == 'elevation' and elevation_map is None:
-            elevation_map = map_data
-            xq, yq = create_coordinate_grids(map_data, resolution=grid_resolution)
-            
-        # Create visualization
-        title = f'{map_name.replace("_", " ").title()} Map'
-        output_file = os.path.join(output_dir, f'{map_name}_map.png')
-        visualize_map(map_data, title, output_file, xq, yq)
+    # Process input based on whether it's a file or directory
+    if os.path.isfile(input_path):
+        # Process single file
+        process_single_file(input_path, output_dir, grid_resolution)
+    elif os.path.isdir(input_path):
+        # Process directory
+        process_directory(input_path, output_dir, grid_resolution)
+    else:
+        print(f"Error: Input path '{input_path}' is neither a file nor a directory.")
+        print_help()
+        sys.exit(1)
     
     print(f"All visualizations saved to {output_dir}")
 
