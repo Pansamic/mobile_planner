@@ -19,10 +19,32 @@
 #include <Eigen/Geometry>
 #include <mobile_planner/elevation_map.h>
 
+/**
+ * @class MobilePlanner
+ * @brief Mobile planner for global path planning of mobile robots
+ * 
+ * This class implements global path planning functionality for mobile robots
+ * using elevation and traversability maps.
+ */
 class MobilePlanner
 {
 public:
-    MobilePlanner(const ElevationMap& elevation_map, const std::string& method, float traversability_threshold);
+    /**
+     * @brief Construct a new Mobile Planner object
+     * 
+     * @param elevation_map Reference to the elevation map
+     * @param method Planning method to use
+     * @param traversability_threshold Threshold for traversability (values above this are considered non-traversable)
+     */
+    MobilePlanner(
+        const ElevationMap& elevation_map, 
+        const std::string& method, 
+        float traversability_threshold
+    );
+    
+    /**
+     * @brief Destroy the Mobile Planner object
+     */
     virtual ~MobilePlanner() = default;
     
     /**
@@ -30,7 +52,6 @@ public:
      * 
      * @param start Start position transform
      * @param goal Goal position transform
-     * @param resolution Map resolution in meters per cell
      * @return std::vector<Eigen::Vector2f> Waypoints of the planned path
      */
     std::vector<Eigen::Vector2f> plan(
@@ -63,13 +84,13 @@ private:
         const Eigen::Vector2f& goal
     );
 
-    // Reference to the elevation map
+    /// Reference to the elevation map
     const ElevationMap& elevation_map_;
     
-    // Planning method to use
+    /// Planning method to use
     std::string method_;
     
-    // Threshold for traversability (values above this are considered non-traversable)
+    /// Threshold for traversability (values above this are considered non-traversable)
     float traversability_threshold_;
 };
 

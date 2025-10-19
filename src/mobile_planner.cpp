@@ -14,8 +14,14 @@
 #include <cmath>
 #include <algorithm>
 
-MobilePlanner::MobilePlanner(const ElevationMap& elevation_map, const std::string& method, float traversability_threshold)
-    : elevation_map_(elevation_map), method_(method), traversability_threshold_(traversability_threshold)
+MobilePlanner::MobilePlanner(
+    const ElevationMap& elevation_map, 
+    const std::string& method, 
+    float traversability_threshold
+)
+    : elevation_map_(elevation_map), 
+      method_(method), 
+      traversability_threshold_(traversability_threshold)
 {
 }
 
@@ -30,7 +36,8 @@ std::vector<Eigen::Vector2f> MobilePlanner::plan(
     
     // Check coordinate validity
     if (!elevation_map_.isValidCoordinate(start_pos.x(), start_pos.y()) ||
-        !elevation_map_.isValidCoordinate(goal_pos.x(), goal_pos.y())) {
+        !elevation_map_.isValidCoordinate(goal_pos.x(), goal_pos.y()))
+    {
         // Invalid start or goal position
         return std::vector<Eigen::Vector2f>();
     }
@@ -39,18 +46,21 @@ std::vector<Eigen::Vector2f> MobilePlanner::plan(
     float start_traversability = elevation_map_.getMapValue(ElevationMap::TRAVERSABILITY, start_pos.x(), start_pos.y());
     float goal_traversability = elevation_map_.getMapValue(ElevationMap::TRAVERSABILITY, goal_pos.x(), goal_pos.y());
     
-    if (std::isnan(start_traversability) || start_traversability > traversability_threshold_) {
+    if (std::isnan(start_traversability) || start_traversability > traversability_threshold_)
+    {
         // Start position is not traversable
         return std::vector<Eigen::Vector2f>();
     }
     
-    if (std::isnan(goal_traversability) || goal_traversability > traversability_threshold_) {
+    if (std::isnan(goal_traversability) || goal_traversability > traversability_threshold_)
+    {
         // Goal position is not traversable
         return std::vector<Eigen::Vector2f>();
     }
     
     // Call appropriate planning method
-    if (method_ == "astar") {
+    if (method_ == "astar")
+    {
         // Convert 3D vectors to 2D (x, y only)
         Eigen::Vector2f start_2d(start_pos.x(), start_pos.y());
         Eigen::Vector2f goal_2d(goal_pos.x(), goal_pos.y());
@@ -77,7 +87,8 @@ std::vector<Eigen::Vector2f> MobilePlanner::planAStar(
 )
 {
     // A* algorithm implementation
-    struct Node {
+    struct Node 
+    {
         float x, y;  // World coordinates
         float g, h, f;
         bool operator>(const Node& other) const { return f > other.f; }
@@ -112,12 +123,14 @@ std::vector<Eigen::Vector2f> MobilePlanner::planAStar(
     std::map<std::pair<float, float>, float> g_score;
     g_score[std::make_pair(start.x(), start.y())] = 0.0f;
     
-    while (!open_set.empty()) {
+    while (!open_set.empty())
+    {
         Node current = open_set.top();
         open_set.pop();
         
         // Check if we reached the goal (within one cell)
-        if (std::hypot(current.x - goal.x(), current.y - goal.y()) <= resolution) {
+        if (std::hypot(current.x - goal.x(), current.y - goal.y()) <= resolution)
+        {
             // Reconstruct path
             std::vector<Eigen::Vector2f> path;
             float x = current.x, y = current.y;
@@ -125,7 +138,8 @@ std::vector<Eigen::Vector2f> MobilePlanner::planAStar(
             std::pair<float, float> current_key = std::make_pair(x, y);
             path.push_back(Eigen::Vector2f(x, y));
             
-            while (parent.find(current_key) != parent.end()) {
+            while (parent.find(current_key) != parent.end())
+            {
                 auto p = parent[current_key];
                 x = p.first;
                 y = p.second;
@@ -144,14 +158,16 @@ std::vector<Eigen::Vector2f> MobilePlanner::planAStar(
             static_cast<int>(std::round(current.y / resolution))
         );
         
-        if (visited.find(current_grid) != visited.end()) {
+        if (visited.find(current_grid) != visited.end())
+        {
             continue;
         }
         
         visited.insert(current_grid);
         
         // Explore neighbors
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 8; i++)
+        {
             float nx = current.x + dx[i] * resolution;
             float ny = current.y + dy[i] * resolution;
             
@@ -162,15 +178,18 @@ std::vector<Eigen::Vector2f> MobilePlanner::planAStar(
             );
             
             // Check if not visited
-            if (visited.find(n_grid) == visited.end()) {
+            if (visited.find(n_grid) == visited.end())
+            {
                 // Check if traversable
                 float traversability = elevation_map_.getMapValue(ElevationMap::TRAVERSABILITY, nx, ny);
                 
-                if (!std::isnan(traversability) && traversability <= traversability_threshold_) {
+                if (!std::isnan(traversability) && traversability <= traversability_threshold_)
+                {
                     float tentative_g = current.g + cost[i] * resolution;
                     
                     std::pair<float, float> n_key = std::make_pair(nx, ny);
-                    if (g_score.find(n_key) == g_score.end() || tentative_g < g_score[n_key]) {
+                    if (g_score.find(n_key) == g_score.end() || tentative_g < g_score[n_key])
+                    {
                         parent[n_key] = std::make_pair(current.x, current.y);
                         g_score[n_key] = tentative_g;
                         float h = std::hypot(goal.x() - nx, goal.y() - ny);

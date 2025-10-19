@@ -31,14 +31,15 @@ public:
     /**
      * @brief Enum for map types
      */
-    enum MapType {
+    enum MapType 
+    {
         ELEVATION = 0,
         ELEVATION_FILTERED,
         UNCERTAINTY,
         SLOPE,
         STEP_HEIGHT,
         ROUGHNESS,
-        TRAVERSABILITY,
+        TRAVERSABILITY
     };
 
     /**
@@ -94,7 +95,7 @@ public:
      * @brief Update elevation map with a new point cloud frame with method specified by `method_`
      * @param point_cloud Input point cloud frame aligned with odometry
      */
-    void update( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud );
+    void update(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
 
     /**
      * @brief Request traversability map
@@ -105,30 +106,134 @@ public:
      */
     const std::vector<Eigen::MatrixXf>& getMaps();
 
+    /**
+     * @brief Get map value at specific coordinates
+     * 
+     * @param map_type Type of map to query
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @return float Map value at specified coordinates
+     */
     float getMapValue(MapType map_type, float x, float y) const;
 
+    /**
+     * @brief Check if coordinates are valid (within map bounds)
+     * 
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @return true if coordinates are valid
+     * @return false if coordinates are invalid
+     */
     bool isValidCoordinate(float x, float y) const;
     
     // Getter methods for algorithm parameters
+    /**
+     * @brief Get slope weight parameter
+     * @return float Slope weight
+     */
     float getSlopeWeight() const { return slope_weight_; }
+    
+    /**
+     * @brief Get step height weight parameter
+     * @return float Step height weight
+     */
     float getStepHeightWeight() const { return step_height_weight_; }
+    
+    /**
+     * @brief Get roughness weight parameter
+     * @return float Roughness weight
+     */
     float getRoughnessWeight() const { return roughness_weight_; }
+    
+    /**
+     * @brief Get slope critical parameter
+     * @return float Critical slope threshold
+     */
     float getSlopeCritical() const { return slope_critical_; }
+    
+    /**
+     * @brief Get step height critical parameter
+     * @return float Critical step height threshold
+     */
     float getStepHeightCritical() const { return step_height_critical_; }
+    
+    /**
+     * @brief Get roughness critical parameter
+     * @return float Critical roughness threshold
+     */
     float getRoughnessCritical() const { return roughness_critical_; }
+    
+    /**
+     * @brief Get Gaussian Process length scale parameter
+     * @return float Length scale parameter
+     */
     float getGPLengthScale() const { return l_; }
+    
+    /**
+     * @brief Get Gaussian Process signal variance parameter
+     * @return float Signal variance parameter
+     */
     float getGPSignalVariance() const { return sigma_f_; }
+    
+    /**
+     * @brief Get Gaussian Process noise variance parameter
+     * @return float Noise variance parameter
+     */
     float getGPNoiseVariance() const { return sigma_n_; }
     
     // Setter methods for algorithm parameters
+    /**
+     * @brief Set slope weight parameter
+     * @param weight New slope weight
+     */
     void setSlopeWeight(float weight) { slope_weight_ = weight; }
+    
+    /**
+     * @brief Set step height weight parameter
+     * @param weight New step height weight
+     */
     void setStepHeightWeight(float weight) { step_height_weight_ = weight; }
+    
+    /**
+     * @brief Set roughness weight parameter
+     * @param weight New roughness weight
+     */
     void setRoughnessWeight(float weight) { roughness_weight_ = weight; }
+    
+    /**
+     * @brief Set slope critical parameter
+     * @param critical New critical slope threshold
+     */
     void setSlopeCritical(float critical) { slope_critical_ = critical; }
+    
+    /**
+     * @brief Set step height critical parameter
+     * @param critical New critical step height threshold
+     */
     void setStepHeightCritical(float critical) { step_height_critical_ = critical; }
+    
+    /**
+     * @brief Set roughness critical parameter
+     * @param critical New critical roughness threshold
+     */
     void setRoughnessCritical(float critical) { roughness_critical_ = critical; }
+    
+    /**
+     * @brief Set Gaussian Process length scale parameter
+     * @param l New length scale parameter
+     */
     void setGPLengthScale(float l) { l_ = l; }
+    
+    /**
+     * @brief Set Gaussian Process signal variance parameter
+     * @param sigma_f New signal variance parameter
+     */
     void setGPSignalVariance(float sigma_f) { sigma_f_ = sigma_f; }
+    
+    /**
+     * @brief Set Gaussian Process noise variance parameter
+     * @param sigma_n New noise variance parameter
+     */
     void setGPNoiseVariance(float sigma_n) { sigma_n_ = sigma_n; }
 
 private:
@@ -164,7 +269,7 @@ private:
      * 
      * @param point_cloud Input point cloud frame aligned with odometry
      */
-    void updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud );
+    void updateDirect(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
     
     /**
      * @brief Update elevation map using full Gaussian Process regression
@@ -174,7 +279,7 @@ private:
      * 
      * @param point_cloud Input point cloud containing the full map data
      */
-    void updateFullGP( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud );
+    void updateFullGP(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
     
     /**
      * @brief Divide point cloud into grid cells
@@ -196,7 +301,7 @@ private:
      * 
      * @param cell_heights Map of grid cell indices to point vectors (modified in place)
      */
-    void extractPointCloudTopSurface( std::vector<std::vector<float>>& cell_heights ) const;
+    void extractPointCloudTopSurface(std::vector<std::vector<float>>& cell_heights) const;
     
     /**
      * @brief Remove points above maximum height limit
@@ -205,7 +310,7 @@ private:
      * 
      * @param cell_heights Map of grid cell indices to point vectors (modified in place)
      */
-    void removeOverHeightPoints( pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud ) const;
+    void removeOverHeightPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud) const;
 
     /**
      * @brief Fuse elevation measurements using 1D Kalman filter
@@ -229,7 +334,7 @@ private:
      * @return true If map was extended
      * @return false If map was not extended
      */
-    bool checkAndExtendMapIfNeeded( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud );
+    bool checkAndExtendMapIfNeeded(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
     
     /**
      * @brief Fill NaN values with minimum value in 3x3 window
@@ -238,7 +343,7 @@ private:
      * 
      * @param map Reference to map to process (modified in place)
      */
-    void fillNaNWithMinimumInWindow( Eigen::MatrixXf& map );
+    void fillNaNWithMinimumInWindow(Eigen::MatrixXf& map);
     
     /**
      * @brief Apply filter to elevation map
@@ -256,7 +361,7 @@ private:
      * 
      * @param map Reference to map to filter (modified in place)
      */
-    void applyBoxBlurFilter( Eigen::MatrixXf& map );
+    void applyBoxBlurFilter(Eigen::MatrixXf& map);
     
     /**
      * @brief Apply Gaussian filter to map
@@ -265,7 +370,7 @@ private:
      * 
      * @param map Reference to map to filter (modified in place)
      */
-    void applyGaussianFilter( Eigen::MatrixXf& map );
+    void applyGaussianFilter(Eigen::MatrixXf& map);
     
     /**
      * @brief Apply bilateral filter to map
@@ -274,7 +379,7 @@ private:
      * 
      * @param map Reference to map to filter (modified in place)
      */
-    void applyBilateralFilter( Eigen::MatrixXf& map );
+    void applyBilateralFilter(Eigen::MatrixXf& map);
     
     /**
      * @brief Compute slope map from elevation data
@@ -306,5 +411,12 @@ private:
      */
     void computeTraversabilityMap();
 
+    /**
+     * @brief Get grid cell index for given coordinates
+     * 
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @return std::tuple<std::size_t, std::size_t> Row and column indices
+     */
     std::tuple<std::size_t, std::size_t> getGridCellIndex(float x, float y) const;
 };
