@@ -106,6 +106,8 @@ public:
     const std::vector<Eigen::MatrixXf>& getMaps();
 
     float getMapValue(MapType map_type, float x, float y) const;
+
+    bool isValidCoordinate(float x, float y) const;
     
     // Getter methods for algorithm parameters
     float getSlopeWeight() const { return slope_weight_; }
