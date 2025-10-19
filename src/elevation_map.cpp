@@ -56,6 +56,11 @@ const std::vector<Eigen::MatrixXf>& ElevationMap::getMaps()
     return maps_;
 }
 
+float ElevationMap::getMapValue(MapType map_type, float x, float y) const
+{
+    auto [row, col] = getGridCellIndex( x, y );
+    return maps_[map_type](row, col);
+}
 void ElevationMap::updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud )
 {
     // Check if map needs to be extended to cover new point cloud
@@ -140,9 +145,7 @@ void ElevationMap::dividePointCloudToGridCells(
     const float max_x = length_x_ / 2.0f;
     const float min_y = -length_y_ / 2.0f;
     const float max_y = length_y_ / 2.0f;
-    const float half_range_x = length_x_ / 2.0f;
-    const float half_range_y = length_y_ / 2.0f;
-    
+
     // Reserve space for cell_heights based on grid map.
     cell_heights.resize( rows_ * cols_ );
 
@@ -154,8 +157,7 @@ void ElevationMap::dividePointCloudToGridCells(
         {
             // Calculate grid cell indices using multiplication instead of division
             // Fixed coordinate mapping: x-coordinate maps to row, y-coordinate maps to column
-            std::size_t col = static_cast<std::size_t>( std::floor(( half_range_y - point->y ) / resolution_ ));
-            std::size_t row = static_cast<std::size_t>( std::floor(( half_range_x - point->x ) / resolution_ ));
+            auto [row, col] = getGridCellIndex( point->x, point->y );
 
             // Ensure indices are within bounds
             if ( row < rows_ && col < cols_ )
@@ -752,4 +754,13 @@ void ElevationMap::applyBilateralFilter(Eigen::MatrixXf& map)
     }
     
     map = filtered_map;
+}
+
+std::tuple<std::size_t, std::size_t> ElevationMap::getGridCellIndex(float x, float y) const
+{
+    const float half_range_x = length_x_ / 2.0f;
+    const float half_range_y = length_y_ / 2.0f;
+    std::size_t row = static_cast<std::size_t>( std::floor(( half_range_x - x ) / resolution_ ));
+    std::size_t col = static_cast<std::size_t>( std::floor(( half_range_y - y ) / resolution_ ));
+    return std::make_tuple(row, col);
 }

@@ -104,6 +104,8 @@ public:
      * @return Eigen::MatrixXf The traversability map
      */
     const std::vector<Eigen::MatrixXf>& getMaps();
+
+    float getMapValue(MapType map_type, float x, float y) const;
     
     // Getter methods for algorithm parameters
     float getSlopeWeight() const { return slope_weight_; }
@@ -301,4 +303,6 @@ private:
      * Combines the three maps with weights to produce a single traversability metric.
      */
     void computeTraversabilityMap();
+
+    std::tuple<std::size_t, std::size_t> getGridCellIndex(float x, float y) const;
 };
