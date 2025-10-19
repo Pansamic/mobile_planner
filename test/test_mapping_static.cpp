@@ -78,10 +78,12 @@ int main()
     elevation_map.update(cloud);
     auto processing_end = std::chrono::high_resolution_clock::now();
 
+    const std::vector<Eigen::MatrixXf>& maps = elevation_map.getMaps();
+
     // Export all maps as binary files
-    for ( std::size_t i = 0; i < elevation_map.maps_.size(); i++)
+    for ( std::size_t i = 0; i < maps.size(); i++)
     {
-        const Eigen::MatrixXf& map = elevation_map.maps_[i];
+        const Eigen::MatrixXf& map = maps[i];
         const std::string& map_name = map_names[i];
         
         std::string filepath = "temp/binary/maps_direct_static/" + map_name + ".bin";

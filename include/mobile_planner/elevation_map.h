@@ -103,20 +103,7 @@ public:
      * 
      * @return Eigen::MatrixXf The traversability map
      */
-    Eigen::MatrixXf requestTraversabilityMap();
-    
-    /**
-     * @brief Compute traversability map from slope, step height, and roughness maps
-     * 
-     * Combines the three maps with weights to produce a single traversability metric.
-     * 
-     * @param slope_weight Weight for slope map (ω1)
-     * @param step_height_weight Weight for step height map (ω2)
-     * @param roughness_weight Weight for roughness map (ω3)
-     * @param slope_critical Critical slope threshold (s_crit)
-     * @param step_height_critical Critical step height threshold (ζ_crit)
-     * @param roughness_critical Critical roughness threshold (r_crit)
-     */
+    const std::vector<Eigen::MatrixXf>& getMaps();
     
     // Getter methods for algorithm parameters
     float getSlopeWeight() const { return slope_weight_; }

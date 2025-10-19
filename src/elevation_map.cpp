@@ -50,6 +50,12 @@ void ElevationMap::update( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud
     }
     // TODO: Implement Gaussian Process method.
 }
+
+const std::vector<Eigen::MatrixXf>& ElevationMap::getMaps()
+{
+    return maps_;
+}
+
 void ElevationMap::updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud )
 {
     // Check if map needs to be extended to cover new point cloud
@@ -451,14 +457,6 @@ void ElevationMap::extractPointCloudTopSurface( std::vector<std::vector<float>>&
         heights.resize(num_points);
     }
 }
-Eigen::MatrixXf ElevationMap::requestTraversabilityMap()
-{
-    // Convert from Eigen::MatrixXf to Eigen::MatrixXf for return
-    Eigen::MatrixXf result = maps_[TRAVERSABILITY].cast<float>();
-    return result;
-}
-
-
 
 bool ElevationMap::checkAndExtendMapIfNeeded( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud )
 {

@@ -18,7 +18,8 @@ public:
     float getResolution() const;
     void add(const std::string name);
     bool resize(float length_x, float length_y);
-     
+
+protected:
     std::vector<Eigen::MatrixXf> maps_;
 
     // map rows, start from 1
