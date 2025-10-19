@@ -6,7 +6,6 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <yaml-cpp/yaml.h>
-#include <mobile_planner/elevation_map.h>
 #include <mobile_planner/mobile_planner.h>
 #include <Eigen/Geometry>
 #include <Eigen/StdVector>
@@ -122,24 +121,24 @@ int main()
     }
 
     // Path planning
-    MobilePlanner planner(planner_method, traversability_threshold);
+    MobilePlanner planner(elevation_map, planner_method, traversability_threshold);
     
     // Define start and goal positions (in world coordinates)
     Eigen::Transform<float, 3, Eigen::Affine> start_transform = Eigen::Transform<float, 3, Eigen::Affine>::Identity();
     Eigen::Transform<float, 3, Eigen::Affine> goal_transform = Eigen::Transform<float, 3, Eigen::Affine>::Identity();
     
-    // Set start position to (0, 0, 0)
-    start_transform.translation() << 1.0f, -5.0f, 0.0f;
+    // Set start position to (2.5, -12, 0)
+    start_transform.translation() << 2.5f, -12.0f, 0.0f;
     
-    // Set goal position to (2, 2, 0)
-    goal_transform.translation() << 12.5f, -5.0f, 0.0f;
+    // Set goal position to (7, -9, 0)
+    goal_transform.translation() << 7.0f, -9.0f, 0.0f;
     
     // Check reachability
-    bool reachable = planner.checkReachability(traversability_map, start_transform, goal_transform);
+    bool reachable = planner.checkReachability(start_transform, goal_transform);
     std::cout << "Path is " << (reachable ? "reachable" : "not reachable") << std::endl;
     
     // Plan path
-    std::vector<Eigen::Vector2f> waypoints = planner.plan(traversability_map, start_transform, goal_transform);
+    std::vector<Eigen::Vector2f> waypoints = planner.plan(start_transform, goal_transform);
     
     std::cout << "Found path with " << waypoints.size() << " waypoints" << std::endl;
     

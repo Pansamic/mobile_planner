@@ -13,68 +13,48 @@
 #include <limits>
 #include <cmath>
 #include <algorithm>
-#include <iostream>
-MobilePlanner::MobilePlanner(const std::string& method, float traversability_threshold)
-    : method_(method), traversability_threshold_(traversability_threshold)
+
+MobilePlanner::MobilePlanner(const ElevationMap& elevation_map, const std::string& method, float traversability_threshold)
+    : elevation_map_(elevation_map), method_(method), traversability_threshold_(traversability_threshold)
 {
 }
 
 std::vector<Eigen::Vector2f> MobilePlanner::plan(
-    const Eigen::MatrixXf& traversability_map,
     const Eigen::Transform<float, 3, Eigen::Affine>& start,
     const Eigen::Transform<float, 3, Eigen::Affine>& goal
 )
 {
-    // For now, we'll use a fixed resolution assumption
-    // In a more complete implementation, this would be passed as a parameter
-    float resolution = 0.1f;
-    int rows = traversability_map.rows();
-    int cols = traversability_map.cols();
-    
     // Convert world coordinates to grid coordinates
-    // Assuming map is centered at origin
     Eigen::Vector3f start_pos = start.translation();
     Eigen::Vector3f goal_pos = goal.translation();
     
-    Eigen::Vector2i start_grid(
-        static_cast<int>(rows / 2 + start_pos.x() / resolution),
-        static_cast<int>(cols / 2 + start_pos.y() / resolution)
-    );
-    
-    Eigen::Vector2i goal_grid(
-        static_cast<int>(rows / 2 + goal_pos.x() / resolution),
-        static_cast<int>(cols / 2 + goal_pos.y() / resolution)
-    );
-    
-    // Clamp to valid range
-    start_grid.x() = std::max(0, std::min(rows - 1, start_grid.x()));
-    start_grid.y() = std::max(0, std::min(cols - 1, start_grid.y()));
-    goal_grid.x() = std::max(0, std::min(rows - 1, goal_grid.x()));
-    goal_grid.y() = std::max(0, std::min(cols - 1, goal_grid.y()));
-    
+    // Check coordinate validity
+    if (!elevation_map_.isValidCoordinate(start_pos.x(), start_pos.y()) ||
+        !elevation_map_.isValidCoordinate(goal_pos.x(), goal_pos.y())) {
+        // Invalid start or goal position
+        return std::vector<Eigen::Vector2f>();
+    }
+
     // Check if start and goal positions are traversable
-    if (std::isnan(traversability_map(start_grid.x(), start_grid.y())) || 
-        traversability_map(start_grid.x(), start_grid.y()) > traversability_threshold_)
-    {
-        std::cout << "Start position is not traversable" << std::endl;
-        std::cout << "Start position traversability: " << traversability_map(start_grid.x(), start_grid.y()) << std::endl;
+    float start_traversability = elevation_map_.getMapValue(ElevationMap::TRAVERSABILITY, start_pos.x(), start_pos.y());
+    float goal_traversability = elevation_map_.getMapValue(ElevationMap::TRAVERSABILITY, goal_pos.x(), goal_pos.y());
+    
+    if (std::isnan(start_traversability) || start_traversability > traversability_threshold_) {
         // Start position is not traversable
         return std::vector<Eigen::Vector2f>();
     }
     
-    if (std::isnan(traversability_map(goal_grid.x(), goal_grid.y())) || 
-        traversability_map(goal_grid.x(), goal_grid.y()) > traversability_threshold_)
-    {
-        std::cout << "Goal position is not traversable" << std::endl;
-        std::cout << "Goal position traversability: " << traversability_map(goal_grid.x(), goal_grid.y()) << std::endl;
+    if (std::isnan(goal_traversability) || goal_traversability > traversability_threshold_) {
         // Goal position is not traversable
         return std::vector<Eigen::Vector2f>();
     }
     
     // Call appropriate planning method
-    if (method_ == "astar")
-    {
-        return planAStar(traversability_map, start_grid, goal_grid);
+    if (method_ == "astar") {
+        // Convert 3D vectors to 2D (x, y only)
+        Eigen::Vector2f start_2d(start_pos.x(), start_pos.y());
+        Eigen::Vector2f goal_2d(goal_pos.x(), goal_pos.y());
+        return planAStar(start_2d, goal_2d);
     }
     
     // Default return empty path
@@ -82,74 +62,75 @@ std::vector<Eigen::Vector2f> MobilePlanner::plan(
 }
 
 bool MobilePlanner::checkReachability(
-    const Eigen::MatrixXf& traversability_map,
     const Eigen::Transform<float, 3, Eigen::Affine>& start,
     const Eigen::Transform<float, 3, Eigen::Affine>& goal
 )
 {
     // Simple check: if we can plan a path, it's reachable
-    std::vector<Eigen::Vector2f> path = plan(traversability_map, start, goal);
+    std::vector<Eigen::Vector2f> path = plan(start, goal);
     return !path.empty();
 }
 
 std::vector<Eigen::Vector2f> MobilePlanner::planAStar(
-    const Eigen::MatrixXf& traversability_map,
-    const Eigen::Vector2i& start,
-    const Eigen::Vector2i& goal
+    const Eigen::Vector2f& start,
+    const Eigen::Vector2f& goal
 )
 {
-    int rows = traversability_map.rows();
-    int cols = traversability_map.cols();
-    
     // A* algorithm implementation
     struct Node {
-        int x, y;
+        float x, y;  // World coordinates
         float g, h, f;
         bool operator>(const Node& other) const { return f > other.f; }
     };
     
     // Directions for 8-connected grid
-    const int dx[8] = {-1, -1, -1,  0, 0,  1, 1, 1};
-    const int dy[8] = {-1,  0,  1, -1, 1, -1, 0, 1};
+    const float dx[8] = {-1, -1, -1,  0, 0,  1, 1, 1};
+    const float dy[8] = {-1,  0,  1, -1, 1, -1, 0, 1};
     const float cost[8] = {
         1.414f, 1.0f, 1.414f, 
         1.0f,           1.0f, 
         1.414f, 1.0f, 1.414f
     };
     
-    // Create maps for g_score, f_score and visited
-    Eigen::MatrixXf g_score = Eigen::MatrixXf::Constant(rows, cols, std::numeric_limits<float>::max());
-    Eigen::MatrixXf f_score = Eigen::MatrixXf::Constant(rows, cols, std::numeric_limits<float>::max());
-    Eigen::MatrixXi visited = Eigen::MatrixXi::Zero(rows, cols);
+    // Get resolution from elevation map
+    float resolution = elevation_map_.getResolution();
+    
+    // Create a map to track visited nodes (using a set of coordinate pairs)
+    std::set<std::pair<int, int>> visited;
     
     // Priority queue for open set
     std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open_set;
     
     // Initialize start node
-    g_score(start.x(), start.y()) = 0.0f;
     float h_start = std::hypot(goal.x() - start.x(), goal.y() - start.y());
-    f_score(start.x(), start.y()) = h_start;
-    
     open_set.push({start.x(), start.y(), 0.0f, h_start, h_start});
     
     // Parent tracking for path reconstruction
-    std::vector<std::vector<std::pair<int, int>>> parent(rows, std::vector<std::pair<int, int>>(cols, {-1, -1}));
+    std::map<std::pair<float, float>, std::pair<float, float>> parent;
+    
+    // G score map
+    std::map<std::pair<float, float>, float> g_score;
+    g_score[std::make_pair(start.x(), start.y())] = 0.0f;
     
     while (!open_set.empty()) {
         Node current = open_set.top();
         open_set.pop();
         
-        // Check if we reached the goal
-        if (current.x == goal.x() && current.y == goal.y()) {
+        // Check if we reached the goal (within one cell)
+        if (std::hypot(current.x - goal.x(), current.y - goal.y()) <= resolution) {
             // Reconstruct path
             std::vector<Eigen::Vector2f> path;
-            int x = current.x, y = current.y;
+            float x = current.x, y = current.y;
             
-            while (x != -1 && y != -1) {
-                path.push_back(Eigen::Vector2f(x, y));
-                auto p = parent[x][y];
+            std::pair<float, float> current_key = std::make_pair(x, y);
+            path.push_back(Eigen::Vector2f(x, y));
+            
+            while (parent.find(current_key) != parent.end()) {
+                auto p = parent[current_key];
                 x = p.first;
                 y = p.second;
+                current_key = std::make_pair(x, y);
+                path.push_back(Eigen::Vector2f(x, y));
             }
             
             // Reverse path to get start->goal order
@@ -158,32 +139,44 @@ std::vector<Eigen::Vector2f> MobilePlanner::planAStar(
         }
         
         // Skip if already visited
-        if (visited(current.x, current.y)) {
+        std::pair<int, int> current_grid = std::make_pair(
+            static_cast<int>(std::round(current.x / resolution)),
+            static_cast<int>(std::round(current.y / resolution))
+        );
+        
+        if (visited.find(current_grid) != visited.end()) {
             continue;
         }
         
-        visited(current.x, current.y) = 1;
+        visited.insert(current_grid);
         
         // Explore neighbors
         for (int i = 0; i < 8; i++) {
-            int nx = current.x + dx[i];
-            int ny = current.y + dy[i];
+            float nx = current.x + dx[i] * resolution;
+            float ny = current.y + dy[i] * resolution;
             
-            // Check bounds
-            if (nx >= 0 && nx < rows && ny >= 0 && ny < cols) {
-                // Check if traversable and not visited
-                if (!visited(nx, ny) && !std::isnan(traversability_map(nx, ny)) && 
-                    traversability_map(nx, ny) <= traversability_threshold_) {
+            // Convert to grid coordinates for checking visited
+            std::pair<int, int> n_grid = std::make_pair(
+                static_cast<int>(std::round(nx / resolution)),
+                static_cast<int>(std::round(ny / resolution))
+            );
+            
+            // Check if not visited
+            if (visited.find(n_grid) == visited.end()) {
+                // Check if traversable
+                float traversability = elevation_map_.getMapValue(ElevationMap::TRAVERSABILITY, nx, ny);
+                
+                if (!std::isnan(traversability) && traversability <= traversability_threshold_) {
+                    float tentative_g = current.g + cost[i] * resolution;
                     
-                    float tentative_g = current.g + cost[i];
-                    
-                    if (tentative_g < g_score(nx, ny)) {
-                        parent[nx][ny] = {current.x, current.y};
-                        g_score(nx, ny) = tentative_g;
+                    std::pair<float, float> n_key = std::make_pair(nx, ny);
+                    if (g_score.find(n_key) == g_score.end() || tentative_g < g_score[n_key]) {
+                        parent[n_key] = std::make_pair(current.x, current.y);
+                        g_score[n_key] = tentative_g;
                         float h = std::hypot(goal.x() - nx, goal.y() - ny);
-                        f_score(nx, ny) = tentative_g + h;
+                        float f = tentative_g + h;
                         
-                        open_set.push({nx, ny, tentative_g, h, tentative_g + h});
+                        open_set.push({nx, ny, tentative_g, h, f});
                     }
                 }
             }
