@@ -42,6 +42,15 @@ public:
         TRAVERSABILITY
     };
 
+    struct PairHash
+    {
+        std::size_t operator()(const std::pair<std::size_t, std::size_t>& p) const
+        {
+            auto h1 = std::hash<std::size_t>{}(p.first);
+            auto h2 = std::hash<std::size_t>{}(p.second);
+            return h1 ^ (h2 << 1);
+        }
+    };
     /**
      * @brief Delete default constructor
      */
@@ -290,7 +299,8 @@ private:
      * @param point_cloud Input point cloud to partition
      */
     [[nodiscard]]
-    std::tuple<std::vector<std::size_t>, Eigen::MatrixXf> dividePointCloudToGridCells(
+    std::unordered_map<std::pair<std::size_t, std::size_t>, std::vector<float>, PairHash>
+    dividePointCloudToGridCells(
         const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud
     ) const;
     
@@ -301,7 +311,9 @@ private:
      * 
      * @param cell_heights Map of grid cell indices to point vectors (modified in place)
      */
-    void extractPointCloudTopSurface(const std::vector<std::size_t> cell_size, Eigen::MatrixXf& cell_heights) const;
+    void extractPointCloudTopSurface(
+        std::unordered_map<std::pair<std::size_t, std::size_t>, std::vector<float>, PairHash>& cell_heights
+    ) const;
     
     /**
      * @brief Remove points above maximum height limit

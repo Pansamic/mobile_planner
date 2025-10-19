@@ -78,31 +78,34 @@ void ElevationMap::updateDirect(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_
 
     // Create a map to store points for each grid cell
     // Partition point cloud to grid cells
-    auto [cell_size, cell_heights] = dividePointCloudToGridCells(point_cloud);
+    auto cell_heights = dividePointCloudToGridCells(point_cloud);
     
     // Extract top surface points in each grid cell
-    extractPointCloudTopSurface(cell_size, cell_heights);
+    extractPointCloudTopSurface(cell_heights);
     
     // Update elevation map with new measurements using Kalman filter
-    for (std::size_t i = 0; i < rows_*cols_; i++)
+    for ( auto cell : cell_heights )
     {
-        if ( cell_size[i] == 0 ) continue;
+        if ( cell.second.empty() ) continue;
         
-        std::size_t valid_amount = std::min(cell_size[i], num_max_points_in_grid_);
+        std::size_t valid_amount = std::min(cell.second.size(), num_max_points_in_grid_);
         // Calculate mean and variance of points in this cell
-        float sum_height = std::accumulate(cell_heights.col(i).data(), cell_heights.col(i).data() + valid_amount, 0.0f);
+        float sum_height = std::accumulate(cell.second.begin(), cell.second.begin() + valid_amount, 0.0f);
         float mean_height = sum_height / static_cast<float>(valid_amount);
 
         float sum_sq_diff = 0.0f;
-        for ( float* height=cell_heights.col(i).data(); height < cell_heights.col(i).data() + valid_amount; height++ )
+        for ( float* height = cell.second.data(); height < cell.second.data() + valid_amount; height++ )
         {
             float diff = *height - mean_height;
             sum_sq_diff += diff * diff;
         }
         float var_height = sum_sq_diff / static_cast<float>(valid_amount);
         
-        float& existing_mean = maps_[ELEVATION].data()[i];
-        float& existing_var = maps_[UNCERTAINTY].data()[i];
+        std::size_t row = cell.first.first;
+        std::size_t col = cell.first.second;
+
+        float& existing_mean = maps_[ELEVATION](row, col);
+        float& existing_var = maps_[UNCERTAINTY](row, col);
         
         // If this is the first measurement for this cell, just use the new values
         if (std::isnan(existing_mean) || std::isnan(existing_var))
@@ -139,36 +142,34 @@ void ElevationMap::updateDirect(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_
     computeTraversabilityMap();
 }
 [[nodiscard]]
-std::tuple<std::vector<std::size_t>, Eigen::MatrixXf> ElevationMap::dividePointCloudToGridCells(
+std::unordered_map<std::pair<std::size_t, std::size_t>, std::vector<float>, ElevationMap::PairHash>
+ElevationMap::dividePointCloudToGridCells(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud
 ) const
 {
-    std::vector<std::size_t> cell_size(rows_ * cols_, 0);
-    Eigen::MatrixXf cell_heights(128, rows_ * cols_);
+    std::unordered_map<std::pair<std::size_t, std::size_t>, std::vector<float>, PairHash> cell_heights;
 
     // Iterate through all points in the point cloud
     for (auto point = point_cloud->rbegin(); point != point_cloud->rend(); point++)
     {
-        // Calculate grid cell indices using multiplication instead of division
-        // Fixed coordinate mapping: x-coordinate maps to row, y-coordinate maps to column
         auto [row, col] = getGridCellIndex(point->x, point->y);
 
         // Ensure indices are within bounds
         if (row < rows_ && col < cols_)
         {
-            std::size_t index = col * rows_ + row;
-
-            if (cell_size[index] >= cell_heights.rows())
+            auto cell = cell_heights.find({row, col});
+            if ( cell == cell_heights.end() )
             {
-                cell_heights.conservativeResize(cell_heights.rows() + 32, cell_heights.cols());
+                cell_heights[{row, col}] = std::vector<float>();
+                cell_heights[{row, col}].reserve(256);
+                cell = cell_heights.find({row, col});
             }
             // Add point to the corresponding grid cell
-            // column-major order for Eigen::MatrixXf memory copy.
-            cell_heights(cell_size[index]++, index) = point->z;
+            cell->second.push_back(point->z);
         }
     }
 
-    return std::make_tuple(cell_size, cell_heights);
+    return cell_heights;
 }
 
 void ElevationMap::removeOverHeightPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud) const
@@ -397,14 +398,13 @@ void ElevationMap::computeTraversabilityMap()
 }
 
 void ElevationMap::extractPointCloudTopSurface(
-    const std::vector<std::size_t> cell_size,
-    Eigen::MatrixXf& cell_heights
+    std::unordered_map<std::pair<std::size_t, std::size_t>, std::vector<float>, PairHash>& cell_heights
 ) const
 {
     // Lambda for insertion sort (descending)
-    auto insertionSortDesc = [](float* vec, const std::size_t size)
+    auto insertionSortDesc = [](std::vector<float>& vec)
     {
-        for ( int i = 1; i < size; ++i )
+        for ( int i = 1; i < vec.size(); ++i )
         {
             float key = vec[i];
             int j = i - 1;
@@ -420,12 +420,12 @@ void ElevationMap::extractPointCloudTopSurface(
         }
     };
 
-    for ( std::size_t i=0; i < cell_heights.cols(); i++ )
+    for ( auto cell : cell_heights )
     {
-        if ( cell_size[i] == 0 ) continue;
+        if ( cell.second.empty() ) continue;
         // insertion sort is the fastest method if the vector is already sorted.
         // `heights` is already sorted because point cloud is sorted.
-        insertionSortDesc(cell_heights.col(i).data(), cell_size[i]);
+        insertionSortDesc(cell.second);
     }
 }
 
