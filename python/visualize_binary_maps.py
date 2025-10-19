@@ -72,11 +72,50 @@ def create_coordinate_grids(map_data, resolution=None):
     
     rows, cols = map_data.shape
     # Center the grid around the origin (0, 0)
-    x_range = np.arange(-cols//2, cols//2) * resolution
-    y_range = np.arange(-rows//2, rows//2) * resolution
+    x_range = np.arange(-rows//2, rows//2) * resolution
+    y_range = np.arange(-cols//2, cols//2) * resolution
     xq, yq = np.meshgrid(x_range, y_range)
     return xq, yq
 
+def calculate_figsize(xq, yq):
+    """
+    Calculate appropriate figure size based on coordinate grid dimensions.
+    
+    Parameters:
+    xq, yq: Coordinate grids
+    
+    Returns:
+    figsize: Tuple of (width, height) for the figure
+    """
+    if xq.size == 0 or yq.size == 0:
+        return (10, 8)
+    
+    # Calculate the range of each dimension
+    x_range = np.ptp(xq)
+    y_range = np.ptp(yq)
+    
+    # Calculate aspect ratio
+    aspect_ratio = x_range / y_range if y_range != 0 else 1
+    
+    # Set base figure size
+    base_width = 10
+    base_height = 8
+    
+    # Adjust based on aspect ratio
+    if aspect_ratio > 1:
+        # Wider than tall
+        width = base_width
+        height = base_width / aspect_ratio
+    else:
+        # Taller than wide
+        height = base_height
+        width = base_height * aspect_ratio
+    
+    # Ensure minimum size
+    width = max(width, 6)
+    height = max(height, 6)
+    
+    return (width, height)
 
 def visualize_map_3d(map_data, title, filename, xq, yq, colormap='jet'):
     """
@@ -89,15 +128,17 @@ def visualize_map_3d(map_data, title, filename, xq, yq, colormap='jet'):
     xq, yq: Coordinate grids
     colormap: Colormap to use
     """
-    fig = plt.figure(figsize=(10, 8))
+    figsize = calculate_figsize(xq, yq)
+    fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection='3d')
     
     if map_data is not None and not np.isnan(map_data).all():
         # Mask NaN values for plotting
         masked_data = np.ma.masked_where(np.isnan(map_data), map_data)
         surf = ax.plot_surface(xq, yq, masked_data, cmap=colormap, edgecolor='none')
-        ax.set_title(title)
-        fig.colorbar(surf, ax=ax, shrink=0.5)
+        # Set aspect ratio only if coordinate grids are not empty
+        if xq.size > 0 and yq.size > 0:
+            ax.set_box_aspect((np.ptp(xq), np.ptp(yq), np.ptp(masked_data)))
     else:
         ax.text(0.5, 0.5, 0.5, 'No Data', transform=ax.transAxes, ha='center', va='center')
         ax.set_title(title)
@@ -126,7 +167,8 @@ def visualize_map_2d(map_data, title, filename, xq, yq, colormap='jet'):
     xq, yq: Coordinate grids
     colormap: Colormap to use
     """
-    fig, ax = plt.subplots(figsize=(10, 8))
+    figsize = calculate_figsize(xq, yq)
+    fig, ax = plt.subplots(figsize=figsize)
     
     if map_data is not None and not np.isnan(map_data).all():
         # Mask NaN values for plotting
@@ -140,6 +182,7 @@ def visualize_map_2d(map_data, title, filename, xq, yq, colormap='jet'):
     
     ax.set_xlabel('X (m)')
     ax.set_ylabel('Y (m)')
+    ax.set_aspect('equal', adjustable='box')
     
     plt.tight_layout()
     plt.savefig(filename, dpi=300)
@@ -186,6 +229,12 @@ def process_single_file(filepath, output_dir, resolution=None):
     
     # Create coordinate grids
     xq, yq = create_coordinate_grids(map_data, resolution)
+
+    # rotate matrix 90 degrees clockwise
+    map_data = np.rot90(map_data, k=1, axes=(1, 0))
+
+    # up side down matrix
+    map_data = np.flipud(map_data)
     
     # Create 3D visualization
     output_file_3d = os.path.join(output_dir, f'{filename}_3d.png')
@@ -219,6 +268,8 @@ def process_directory(directory_path, output_dir, resolution=None):
 
 
 def main():
+    np.set_printoptions(threshold=np.inf, linewidth=np.inf)
+
     # Check command line arguments
     if len(sys.argv) != 3:
         print("Error: Incorrect number of arguments.")
