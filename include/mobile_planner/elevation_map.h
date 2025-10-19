@@ -289,8 +289,8 @@ private:
      * @param cell_heights Output map of grid cell indices to point vectors
      * @param point_cloud Input point cloud to partition
      */
-    void dividePointCloudToGridCells(
-        std::vector<std::vector<float>>& cell_heights,
+    [[nodiscard]]
+    std::tuple<std::vector<std::size_t>, Eigen::MatrixXf> dividePointCloudToGridCells(
         const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud
     ) const;
     
@@ -301,7 +301,7 @@ private:
      * 
      * @param cell_heights Map of grid cell indices to point vectors (modified in place)
      */
-    void extractPointCloudTopSurface(std::vector<std::vector<float>>& cell_heights) const;
+    void extractPointCloudTopSurface(const std::vector<std::size_t> cell_size, Eigen::MatrixXf& cell_heights) const;
     
     /**
      * @brief Remove points above maximum height limit
