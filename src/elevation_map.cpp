@@ -84,8 +84,10 @@ void ElevationMap::updateDirect(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_
     extractPointCloudTopSurface(cell_size, cell_heights);
     
     // Update elevation map with new measurements using Kalman filter
-    for (std::size_t i = 0; i < rows_*cols_, cell_size[i]!=0; i++)
+    for (std::size_t i = 0; i < rows_*cols_; i++)
     {
+        if ( cell_size[i] == 0 ) continue;
+        
         std::size_t valid_amount = std::min(cell_size[i], num_max_points_in_grid_);
         // Calculate mean and variance of points in this cell
         float sum_height = std::accumulate(cell_heights.col(i).data(), cell_heights.col(i).data() + valid_amount, 0.0f);
@@ -418,8 +420,9 @@ void ElevationMap::extractPointCloudTopSurface(
         }
     };
 
-    for ( std::size_t i=0; i < cell_heights.cols(), cell_size[i]!=0; i++ )
+    for ( std::size_t i=0; i < cell_heights.cols(); i++ )
     {
+        if ( cell_size[i] == 0 ) continue;
         // insertion sort is the fastest method if the vector is already sorted.
         // `heights` is already sorted because point cloud is sorted.
         insertionSortDesc(cell_heights.col(i).data(), cell_size[i]);
