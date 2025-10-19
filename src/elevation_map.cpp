@@ -61,6 +61,12 @@ float ElevationMap::getMapValue(MapType map_type, float x, float y) const
     auto [row, col] = getGridCellIndex( x, y );
     return maps_[map_type](row, col);
 }
+
+bool ElevationMap::isValidCoordinate(float x, float y) const
+{
+    return x >= -length_x_ / 2.0f && x <= length_x_ / 2.0f && y >= -length_y_ / 2.0f && y <= length_y_ / 2.0f;
+}
+
 void ElevationMap::updateDirect( const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud )
 {
     // Check if map needs to be extended to cover new point cloud
