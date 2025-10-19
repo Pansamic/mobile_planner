@@ -7,6 +7,9 @@
 #include <pcl/point_types.h>
 #include <yaml-cpp/yaml.h>
 #include <mobile_planner/elevation_map.h>
+#include <mobile_planner/mobile_planner.h>
+#include <Eigen/Geometry>
+#include <Eigen/StdVector>
 
 int main()
 {
@@ -53,6 +56,10 @@ int main()
     float l = config["elevation_map"]["gaussian_process"]["l"].as<float>();
     float sigma_f = config["elevation_map"]["gaussian_process"]["sigma_f"].as<float>();
     float sigma_n = config["elevation_map"]["gaussian_process"]["sigma_n"].as<float>();
+
+    // Planner parameters
+    std::string planner_method = config["planner"]["method"].as<std::string>();
+    float traversability_threshold = config["planner"]["traversability_threshold"].as<float>();
     
     ElevationMap elevation_map(
         method,
@@ -79,6 +86,7 @@ int main()
     auto processing_end = std::chrono::high_resolution_clock::now();
 
     const std::vector<Eigen::MatrixXf>& maps = elevation_map.getMaps();
+    const Eigen::MatrixXf& traversability_map = maps[ElevationMap::TRAVERSABILITY];
 
     // Export all maps as binary files
     for ( std::size_t i = 0; i < maps.size(); i++)
@@ -103,27 +111,70 @@ int main()
             
             // Write matrix data
             file.write(reinterpret_cast<const char*>(map.data()), sizeof(float) * rows * cols);
-            file.close();
             
-            std::cout << "Exported " << map_name << " map (" << rows << "x" << cols << ") to " << filepath << std::endl;
+            file.close();
+            std::cout << "Exported " << map_name << " map to " << filepath << std::endl;
         }
         else
         {
             std::cerr << "Failed to open file for writing: " << filepath << std::endl;
         }
     }
+
+    // Path planning
+    MobilePlanner planner(planner_method, traversability_threshold);
     
-    // End timing
+    // Define start and goal positions (in world coordinates)
+    Eigen::Transform<float, 3, Eigen::Affine> start_transform = Eigen::Transform<float, 3, Eigen::Affine>::Identity();
+    Eigen::Transform<float, 3, Eigen::Affine> goal_transform = Eigen::Transform<float, 3, Eigen::Affine>::Identity();
+    
+    // Set start position to (0, 0, 0)
+    start_transform.translation() << 1.0f, -5.0f, 0.0f;
+    
+    // Set goal position to (2, 2, 0)
+    goal_transform.translation() << 12.5f, -5.0f, 0.0f;
+    
+    // Check reachability
+    bool reachable = planner.checkReachability(traversability_map, start_transform, goal_transform);
+    std::cout << "Path is " << (reachable ? "reachable" : "not reachable") << std::endl;
+    
+    // Plan path
+    std::vector<Eigen::Vector2f> waypoints = planner.plan(traversability_map, start_transform, goal_transform);
+    
+    std::cout << "Found path with " << waypoints.size() << " waypoints" << std::endl;
+    
+    // Export waypoints as binary file
+    std::string waypoints_filepath = "temp/binary/maps_direct_static/waypoints.bin";
+    std::ofstream waypoints_file(waypoints_filepath, std::ios::binary);
+    
+    if (waypoints_file.is_open())
+    {
+        // Write number of waypoints
+        int num_waypoints = waypoints.size();
+        waypoints_file.write(reinterpret_cast<const char*>(&num_waypoints), sizeof(int));
+        
+        // Write waypoints data
+        for (const auto& waypoint : waypoints)
+        {
+            float data[2] = {waypoint.x(), waypoint.y()};
+            waypoints_file.write(reinterpret_cast<const char*>(data), sizeof(float) * 2);
+        }
+        
+        waypoints_file.close();
+        std::cout << "Exported waypoints to " << waypoints_filepath << std::endl;
+    }
+    else
+    {
+        std::cerr << "Failed to open waypoints file for writing: " << waypoints_filepath << std::endl;
+    }
+
+    // Print timing information
     auto end_time = std::chrono::high_resolution_clock::now();
-    
-    // Calculate durations
-    auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     auto processing_duration = std::chrono::duration_cast<std::chrono::milliseconds>(processing_end - processing_start);
+    auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     
-    std::cout << "Total computation time: " << total_duration.count() << " ms" << std::endl;
     std::cout << "Point cloud processing time: " << processing_duration.count() << " ms" << std::endl;
-    
-    std::cout << "All maps exported successfully!" << std::endl;
-    
+    std::cout << "Total execution time: " << total_duration.count() << " ms" << std::endl;
+
     return 0;
 }

@@ -19,3 +19,7 @@ elevation_map:
     l: 2.0
     sigma_f: 1.0
     sigma_n: 0.2
+
+planner:
+  method: astar
+  traversability_threshold: 4.0

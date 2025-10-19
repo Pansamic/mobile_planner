@@ -35,6 +35,7 @@ set(MOBILE_PLANNER_SOURCES
     src/elevation_map.cpp
     src/grid_map.cpp
     src/point_cloud_process.cpp
+    src/mobile_planner.cpp
 )
 
 # Header files
@@ -78,10 +79,10 @@ install(FILES ${MOBILE_PLANNER_HEADERS}
 
 # Add test executable if tests are enabled
 if(MOBILE_PLANNER_BUILD_TESTS)
-    add_executable(test_mapping_static test/test_mapping_static.cpp)
+    add_executable(test_map_plan_static test/test_map_plan_static.cpp)
     
     # Link PCL libraries
-    target_link_libraries(test_mapping_static
+    target_link_libraries(test_map_plan_static
         mobile_planner
         ${CMAKE_BINARY_DIR}/_deps/install/lib/libpcl_common.so
         ${CMAKE_BINARY_DIR}/_deps/install/lib/libpcl_io.so
