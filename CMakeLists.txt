@@ -30,8 +30,6 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-add_compile_options(-mavx -mavx2)
-
 # Source files
 set(MOBILE_PLANNER_SOURCES
     src/elevation_map.cpp
