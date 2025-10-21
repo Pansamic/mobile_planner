@@ -16,6 +16,11 @@ if ( CMAKE_BUILD_TYPE STREQUAL "Release" )
     add_compile_options(-DNDEBUG)
 endif()
 
+if ( CMAKE_BUILD_TYPE STREQUAL "Release" )
+    add_compile_options(-O3)
+    add_compile_options(-DNDEBUG)
+endif()
+
 include(cmake/dependencies.cmake)
 
 option(MOBILE_PLANNER_BUILD_TESTS "Build test programs" ON)
@@ -29,8 +34,6 @@ include_directories(
     ${CMAKE_BINARY_DIR}/_deps/install/include/pcl-1.15
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-
-add_compile_options(-mavx -mavx2)
 
 # Source files
 set(MOBILE_PLANNER_SOURCES
